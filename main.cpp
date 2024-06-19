@@ -17,9 +17,13 @@
 #include <iterator>
 #include <functional>
 #include <stdexcept>
+#include <unistd.h>
+#include <ncurses.h>
 
 #define min(a, b) (( a < b ) ? a : b)
 #define max(a, b) (( a < b ) ? b : a)
+#define HEIGHT 12
+#define WIGHT 40
 int limit (const int a)
 {
     if (a < 0)
@@ -35,16 +39,18 @@ enum cell_state
     HIT,
     NOT_HIT
 };
+const std::vector<std::string> menu_options = {
+        "**X Welcome to sea battle! X**", "Start", "Hints", "Reset score", "Quit"
+};
+
 
 class FIELD {
 public:
     FIELD ()
     {
-        for (int i = 0; i < 10; i++)
-        {
-            for (int j = 0; j < 10; j++)
-                map[i][j] = NOT_CHECKED;
-        }
+        for (auto & i : map)
+            for (int & j : i)
+                j = NOT_CHECKED;
         alive = 20;
         for (int i = 0; i < 4 ; i++)
             ships_left[i] = 4-i;
@@ -67,12 +73,13 @@ public:
             std::cout << std::endl;
         }
     }
-    void draw_player_and_opponent ()
+    void draw ()
     {
-        std::cout << "    A B C D E F G H I J\t\t\t    A B C D E F G H I J" << std::endl;
+        std::cout << "    A B C D E F G H I J\t\t\t\t    A B C D E F G H I J" << std::endl;
         for (int i = 0; i < 10; i++)
         {
             draw_player_field_line (i);
+            std::cout << "\t\t\t";
             draw_opponents_field_line (i);
             std::cout << std::endl;
         }
@@ -106,7 +113,7 @@ public:
         ships_left[size]--;
         return true;
     }
-    bool check_loss ()
+    bool check_loss () const
     {
         return alive;
     }
@@ -129,6 +136,7 @@ public:
             map[y][x] = HIT;
             return true;
         }
+        return false;
     }
     void print_amount_left ()
     {
@@ -144,8 +152,8 @@ public:
     }
     bool placing_ongoing () {
         int left = 0;
-        for (int i = 0; i < 4; i++)
-            left += ships_left[i];
+        for (int i : ships_left)
+            left += i;
         return left-9;
     }
 private:
@@ -221,101 +229,188 @@ private:
     int alive;
     int map [10][10];
 };
-
-int main() {
-    int menu = 0;
-    bool hints;
-    int first_score = 0, second_score = 0;
-    std::cout << "\033[H\033[J";
-    while (true)
+class GAME {
+public:
+    GAME ()
+    : one_score (0), two_score(0), hints (false)
+    {}
+    FIELD one, two;
+    bool manage_menu () // true - start, false - quit
     {
-        while (menu != 1) // manage menu
+        while (1)
+        {
+            int option = 2;
+            int selection = 0;
+            int c;
+
+            initscr();
+            clear();
+            noecho();
+            cbreak(); // Line buffering disabled. Pass on everything
+            keypad(stdscr, TRUE);
+
+            int startx = (COLS - WIGHT) / 2;
+            int starty = (LINES - HEIGHT) / 2;
+
+            WINDOW *menu_win = newwin(HEIGHT, WIGHT, starty, startx);
+            keypad(menu_win, TRUE);
+            refresh();
+            print_menu(menu_win, option, menu_options, hints, one_score, two_score);
+
+            while (1)
             {
-            std::cout << "     **X  Welcome to Sea Battle!  X**     " << std::endl;
-            std::cout << "Menu: \n1. Start\n2. Turn on hints\n3. Turn off hints\n4. Show score\n5.Leave" << std::endl;
-            std::cin >> menu;
-            switch (menu)
-            {
-                case 1:
-                {
-                    std::cout << "\033[H\033[J";
-                    break;
+                c = wgetch(menu_win);
+                switch (c) {
+                    case KEY_UP:
+                    {
+                        if (option == 2)
+                            option = menu_options.size();
+                        else
+                            option--;
+                        break;
+                    }
+                    case KEY_DOWN:
+                    {
+                        if (option == menu_options.size())
+                            option = 2;
+                        else
+                            option++;
+                        break;
+                    }
+
+                    case 10: // Enter
+                    {
+                        selection = option;
+                        break;
+                    }
+                    default:
+                        break;
                 }
+                print_menu(menu_win, option, menu_options, hints, one_score, two_score);
+                if (selection != 0) // player made a choice
+                    break;
+            }
+            clrtoeol();
+            refresh();
+            endwin();
+
+            switch (selection)
+            {
                 case 2:
                 {
                     std::cout << "\033[H\033[J";
-                    hints = true;
-                    std::cout << "Hints were turned on" << std::endl;
-                    break;
+                    return true;
                 }
                 case 3:
                 {
-                    std::cout << "\033[H\033[J";
+                    if (!hints)
+                    {
+                        hints = true;
+                        break;
+                    }
                     hints = false;
-                    std::cout << "Hints were turned off" << std::endl;
                     break;
                 }
                 case 4:
                 {
-                    std::cout << "\033[H\033[J";
-                    std::cout << "Current score is " << first_score << ':' << second_score << std::endl;
-                    if (first_score == second_score && first_score != 0)
-                        std::cout << "You both are really good!" << std::endl;
-                    if (first_score < second_score)
-                        std::cout << "First player wins!" << std::endl;
-                    if (first_score > second_score)
-                        std::cout << "Second player wins!" << std::endl;
+                    one_score = 0;
+                    two_score = 0;
                     break;
                 }
                 case 5:
                 {
                     std::cout << "See you later, capitan!" << std::endl;
-                    return 0;
-                }
-
-                default:
-                {
-                    std::cout << "\033[H\033[J";
-                    std::cout << "Oppss, try again" << std::endl;
-                    break;
+                    return false;
                 }
             }
         }
-        FIELD player, bot;
-        bot.add_ship(0,0,0,3);
-        bot.add_ship(2,0,2,2);
-        bot.add_ship(4,0,4,2);
-        bot.add_ship(6,0,6,2);
-        bot.add_ship(8,0,8,2);
-        while (player.placing_ongoing()) //place your ships on field
+    }
+
+private:
+
+    static void print_menu(WINDOW *menu_win, int highlight, const std::vector<std::string> &choices, bool hints, const int one_score, const int two_score)
+    {
+
+        int x = (WIGHT - sizeof (choices[0])) / 2 + 1, y = 0;
+        box(menu_win, 0, 0);
+        mvwprintw(menu_win, y, x, "%s", choices[0].c_str());
+        x = 5;
+        y = 3;
+        for (int i = 1; i < choices.size(); ++i) {
+            if (highlight == i + 1) //is selected
+            {
+                wattron(menu_win, A_REVERSE); // Highlight the current choice
+                mvwprintw(menu_win, y, x, "%s", choices[i].c_str());
+                if (i == 2)
+                {
+                    if (hints)
+                        mvwprintw(menu_win, y, WIGHT * 3 / 4 , "ON");
+                    if (!hints)
+                        mvwprintw(menu_win, y, WIGHT * 3 / 4, "OFF");
+                }
+                wattroff(menu_win, A_REVERSE);
+            }
+            else // not selected
+            {
+                mvwprintw(menu_win, y, x, "%s", choices[i].c_str());
+                if (i == 2)
+                {
+                    if (hints)
+                        mvwprintw(menu_win, y, WIGHT * 3 / 4, "ON");
+                    else
+                        mvwprintw(menu_win, y, WIGHT * 3 / 4, "OFF");
+                }
+            }
+            y++;
+        }
+        mvwprintw(menu_win, 8, (WIGHT-5)/2, "SCORE");
+        mvwprintw(menu_win, 9, (WIGHT-5)/2, "%d : %d", one_score, two_score);
+        wrefresh(menu_win);
+    }
+    bool hints;
+    int one_score = 0, two_score = 0;
+};
+
+
+
+int main() {
+    std::cout << "\033[H\033[J";
+    GAME game;
+    while (true)
+    {
+        if (!game.manage_menu())
+            return 0;
+        game.two.add_ship(0,0,0,3);
+        game.two.add_ship(2,0,2,2);
+        game.two.add_ship(4,0,4,2);
+        game.two.add_ship(6,0,6,2);
+        game.two.add_ship(8,0,8,2);
+        while (game.one.placing_ongoing()) //place your ships on field
             {
             std::cout << "\033[H\033[J";
             std::cout << "Here is your field, chose carefully where to hide your fleet" << std::endl;
-            std::cout << "Set position of each ship in a format \"A1:A3\", size of ship is a distance between two points\n" << std::endl;
 
-            player.draw_players_field ();
-            player.print_amount_left();
+            game.one.draw ();
 
             std::string coordinates;
             std::cin >> coordinates;
-            if (player.add_ship(coordinates[0]-'A', coordinates[1]-'1', coordinates[3]-'A', coordinates[4]-'1'))
+            if (game.one.add_ship(coordinates[0]-'A', coordinates[1]-'1', coordinates[3]-'A', coordinates[4]-'1'))
                 std::cout << "Ship was added\n" << std::endl;
             else
                 std::cout << "Write coordinates correctly!\n" << std::endl;
-            ;
         }
 
         int x_ = 0, y_ = 0;
-        while (player.check_loss() && bot.check_loss()) // manage game
+        while (game.one.check_loss() && game.two.check_loss()) // manage game
         {
             std::cout << "\033[H\033[J";
             std::cout << "\t **X Battle field X**" << std::endl;
-            player.draw_players_field();
+            game.one.draw_players_field();
             std::cout << '\n';
-            bot.draw_opponents_field();
+            game.two.draw_opponents_field();
             char x, y;
             std::cin >> x >> y;
-            if (bot.fire(x - 'A', y - '1'))
+            if (game.two.fire(x - 'A', y - '1'))
                 continue;
             do
             {
@@ -325,7 +420,7 @@ int main() {
                     x = 0;
                     y++;
                 }
-            } while (player.fire(x_, y_));
+            } while (game.one.fire(x_, y_));
         }
     }
 }
