@@ -22,8 +22,13 @@
 
 #define min(a, b) (( a < b ) ? a : b)
 #define max(a, b) (( a < b ) ? b : a)
-#define HEIGHT 12
-#define WIGHT 40
+#define MENU_HEIGHT 12
+#define MENU_WIDTH 40
+#define GAME_HEIGHT 40
+#define GAME_WIDTH 150
+#define FIELD_WIDHT 41
+#define BETWEEN_FIELDS ((GAME_WIDTH - FIELD_WIDHT * 2) / 3)
+
 int limit (const int a)
 {
     if (a < 0)
@@ -232,32 +237,26 @@ private:
 class GAME {
 public:
     GAME ()
-    : one_score (0), two_score(0), hints (false)
+    : one_score (1), two_score(2), hints (false)
     {}
     FIELD one, two;
-    bool manage_menu () // true - start, false - quit
+    bool manage_menu () // true - start game, false - quit
     {
         while (1)
         {
             int option = 2;
-            int selection = 0;
+            int selection = 1;
             int c;
+            int startx = (COLS - MENU_WIDTH) / 2;
+            int starty = (LINES - MENU_HEIGHT) / 2;
 
-            initscr();
-            clear();
-            noecho();
-            cbreak(); // Line buffering disabled. Pass on everything
-            keypad(stdscr, TRUE);
-
-            int startx = (COLS - WIGHT) / 2;
-            int starty = (LINES - HEIGHT) / 2;
-
-            WINDOW *menu_win = newwin(HEIGHT, WIGHT, starty, startx);
+            WINDOW *menu_win = newwin(MENU_HEIGHT, MENU_WIDTH, starty, startx);
             keypad(menu_win, TRUE);
             refresh();
+            box(menu_win, 0, 0);
             print_menu(menu_win, option, menu_options, hints, one_score, two_score);
 
-            while (1)
+            while (1) // arrow movement
             {
                 c = wgetch(menu_win);
                 switch (c) {
@@ -287,18 +286,18 @@ public:
                         break;
                 }
                 print_menu(menu_win, option, menu_options, hints, one_score, two_score);
-                if (selection != 0) // player made a choice
+                if (selection != 1) // player made a choice
                     break;
             }
-            clrtoeol();
-            refresh();
-            endwin();
 
-            switch (selection)
+            switch (selection) // chosen point in menu
             {
                 case 2:
                 {
-                    std::cout << "\033[H\033[J";
+                    werase(menu_win);
+                    wrefresh(menu_win);
+                    delwin(menu_win);
+                    clear();
                     return true;
                 }
                 case 3:
@@ -319,20 +318,38 @@ public:
                 }
                 case 5:
                 {
+                    delwin (menu_win);
+                    endwin();
                     std::cout << "See you later, capitan!" << std::endl;
                     return false;
                 }
             }
         }
     }
+    void manage_ship_placement ()
+    {
+        //create a new window
+        int startx = (COLS - GAME_WIDTH) / 2;
+        int starty = (LINES - GAME_HEIGHT) / 2;
 
+        WINDOW *game_win = newwin(GAME_HEIGHT, GAME_WIDTH, starty, startx);
+        keypad(game_win, TRUE);
+
+        box(game_win, 0, 0);
+        mvwprintw(game_win, 3, 45, "Here is your field, chose carefully where to hide your fleet");
+        //draw grids
+        mvwprintw(game_win, 10, BETWEEN_FIELDS + 3, "~-----------~    You    ~-----------~");
+        mvwprintw(game_win, 10, BETWEEN_FIELDS * 2 + 3 + FIELD_WIDHT, "~----------~    Enemy    ~----------~");
+        draw_grid(game_win, 11, BETWEEN_FIELDS + 1); //player
+        draw_grid(game_win, 11, BETWEEN_FIELDS * 2 + 1 + FIELD_WIDHT); //opponent
+
+        wrefresh(game_win);
+    }
 private:
-
     static void print_menu(WINDOW *menu_win, int highlight, const std::vector<std::string> &choices, bool hints, const int one_score, const int two_score)
     {
 
-        int x = (WIGHT - sizeof (choices[0])) / 2 + 1, y = 0;
-        box(menu_win, 0, 0);
+        int x = (MENU_WIDTH - sizeof (choices[0])) / 2 + 1, y = 0;
         mvwprintw(menu_win, y, x, "%s", choices[0].c_str());
         x = 5;
         y = 3;
@@ -344,9 +361,9 @@ private:
                 if (i == 2)
                 {
                     if (hints)
-                        mvwprintw(menu_win, y, WIGHT * 3 / 4 , "ON");
+                        mvwprintw(menu_win, y, MENU_WIDTH * 3 / 4 , "ON");
                     if (!hints)
-                        mvwprintw(menu_win, y, WIGHT * 3 / 4, "OFF");
+                        mvwprintw(menu_win, y, MENU_WIDTH * 3 / 4, "OFF");
                 }
                 wattroff(menu_win, A_REVERSE);
             }
@@ -356,39 +373,76 @@ private:
                 if (i == 2)
                 {
                     if (hints)
-                        mvwprintw(menu_win, y, WIGHT * 3 / 4, "ON");
+                        mvwprintw(menu_win, y, MENU_WIDTH * 3 / 4, "ON");
                     else
-                        mvwprintw(menu_win, y, WIGHT * 3 / 4, "OFF");
+                        mvwprintw(menu_win, y, MENU_WIDTH * 3 / 4, "OFF");
                 }
             }
             y++;
         }
-        mvwprintw(menu_win, 8, (WIGHT-5)/2, "SCORE");
-        mvwprintw(menu_win, 9, (WIGHT-5)/2, "%d : %d", one_score, two_score);
+        mvwprintw(menu_win, 8, (MENU_WIDTH - 5) / 2, "SCORE");
+        mvwprintw(menu_win, 9, (MENU_WIDTH - 5) / 2, "%d : %d", one_score, two_score);
         wrefresh(menu_win);
     }
+    void draw_grid(WINDOW *game_win, int start_y, int start_x) {
+        // Draw horizontal lines with intersections
+        for (int i = 0; i <= 10; i++)
+        {
+            int y = start_y + i * 2;
+            for (int j = 0; j <= 10; j++)
+            {
+                int x = start_x + j * 4;
+                if (i == 0) //  top line
+                    mvwaddch(game_win, y, x, (j == 0) ? ACS_ULCORNER : (j == 10) ? ACS_URCORNER : ACS_TTEE);
+                if (i == 10) // bottom line
+                    mvwaddch(game_win, y, x, (j == 0) ? ACS_LLCORNER : (j == 10) ? ACS_LRCORNER : ACS_BTEE);
+                if (i > 0 && i < 10) // in between
+                    mvwaddch(game_win, y, x, (j == 0) ? ACS_LTEE : (j == 10) ? ACS_RTEE : ACS_PLUS);
+
+                if (j < 10) {
+                    mvwhline (game_win, y, x + 1, ACS_HLINE, 3);
+                }
+            }
+        }
+
+        // Draw vertical lines with intersections
+        for (int j = 0; j <= 10; j++) {
+            int x = start_x + j * 4;
+            for (int i = 0; i <= 10; i++) {
+                int y = start_y + i * 2;
+                if (i < 10) {
+                    mvwhline(game_win, y + 1, x, ACS_VLINE, 1);
+                }
+            }
+        }
+    }
     bool hints;
-    int one_score = 0, two_score = 0;
+    int one_score, two_score;
 };
 
 
 
 int main() {
-    std::cout << "\033[H\033[J";
     GAME game;
+    initscr();
+    cbreak();
+    noecho();
+    keypad(stdscr, TRUE);
     while (true)
     {
         if (!game.manage_menu())
             return 0;
+        game.manage_ship_placement();
+        sleep (10);
+        std::cout << "well well well" << std::endl;
+
+/*
         game.two.add_ship(0,0,0,3);
         game.two.add_ship(2,0,2,2);
         game.two.add_ship(4,0,4,2);
         game.two.add_ship(6,0,6,2);
         game.two.add_ship(8,0,8,2);
         while (game.one.placing_ongoing()) //place your ships on field
-            {
-            std::cout << "\033[H\033[J";
-            std::cout << "Here is your field, chose carefully where to hide your fleet" << std::endl;
 
             game.one.draw ();
 
@@ -398,7 +452,6 @@ int main() {
                 std::cout << "Ship was added\n" << std::endl;
             else
                 std::cout << "Write coordinates correctly!\n" << std::endl;
-        }
 
         int x_ = 0, y_ = 0;
         while (game.one.check_loss() && game.two.check_loss()) // manage game
@@ -421,6 +474,6 @@ int main() {
                     y++;
                 }
             } while (game.one.fire(x_, y_));
-        }
+        } */
     }
 }
