@@ -44,6 +44,13 @@ public:
         for (int i = 0; i < 4 ; i++)
             ships_left[i] = 4-i;
     }
+
+    bool size_remains (int size)
+    {
+        if (ships_left[size])
+            return true;
+        return false;
+    }
     int cell_state(int x, int y) const
     {
         return map[y][x];
@@ -56,17 +63,14 @@ public:
                 if (map[j][i] == NOT_HIT)
                     return false;
 
-        //check if there are enough ships of this size
-        int size = max (max(one_x, two_x) - min(one_x, two_x), max(one_y, two_y) - min(one_y, two_y));
-        if (!ships_left[size])
-            return false;
-
         //add ship to the map
         for (int i = min (one_x, two_x); i <= max (one_x, two_x); i++)
             for (int j = min (one_y, two_y); j <= max (one_y, two_y); j++)
                 map[j][i] = NOT_HIT;
+
+        int size = max (max(one_x, two_x) - min(one_x, two_x), max(one_y, two_y) - min(one_y, two_y));
         ships_left[size]--;
-        return true;
+
     }
     bool check_loss () const
     {
@@ -182,12 +186,16 @@ public:
         //draw existing ships
         draw_player_ships (game_win, 12, BETWEEN_FIELDS + 3, one);
         draw_enemy_ships (game_win, 12, BETWEEN_FIELDS * 2 + 3 + FIELD_WIDTH, two);
-        int from_x = 4, from_y = 3, to_x = 5, to_y = 3;
+        int ship_size = 3; // actually represents the size of 4
+        int from_x = 3, from_y = 4, to_x = from_x + ship_size, to_y = 4;
+        draw_placing_ship (game_win, 12, BETWEEN_FIELDS + 3, from_x, from_y, to_x, to_y);
         wrefresh(game_win);
 
+
         int c;
-        while (true) // arrow movement
+        while (ship_size != -1) // arrow movement
         {
+
             c = wgetch(game_win);
             switch (c)
             {
@@ -215,8 +223,34 @@ public:
                     from_x++;
                     to_x++;
                     break;
+                case ' ': // Space
+                    if (from_y == to_y)
+                    {
+                        to_x = from_x;
+                        to_y += ship_size;
+
+                        if (to_y > 9)
+                        {
+                            from_y = 9 - ship_size;
+                            to_y = 9;
+                        }
+                        break;
+                    }
+                    to_x += ship_size;
+                    to_y = from_y;
+                    if (to_x > 9)
+                    {
+                        from_x = 9 - ship_size;
+                        to_x = 9;
+                    }
+                    break;
                 case 10: // Enter
                     field.add_ship(from_x, from_y, to_x, to_y);
+                    if (!one.size_remains (ship_size))
+                    {
+                        ship_size--;
+                        from_x == to_x ? to_y-- : to_x--;
+                    }
                     break;
                 default:
                     continue;
@@ -372,16 +406,6 @@ int main() {
     cbreak();
     noecho();
     keypad(stdscr, TRUE);
-
-    //tests
-    game.one.add_ship(0,0,0,3);
-    game.one.add_ship(2,0,2,2);
-    game.one.add_ship(4,0,4,2);
-    game.one.add_ship(6,0,6,2);
-    game.one.add_ship(8,0,8,2);
-    game.one.fire(0,0);
-    game.one.fire(1,0);
-
 
     while (true)
     {
