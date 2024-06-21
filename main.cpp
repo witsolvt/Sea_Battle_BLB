@@ -50,14 +50,6 @@ public:
     }
     bool add_ship (const int one_x, const int one_y, const int two_x, const int two_y)
     {
-        //check if coordinates are correct
-        if (one_x != two_x && one_y != two_y)
-            return false;
-        if (one_x < 0 || one_x > 9 || two_x < 0 || two_x > 9 || one_y < 0 || one_y > 9 || two_y < 0 || two_y > 9)
-            return false;
-        if (max(one_x, two_x) - min(one_x, two_x) > 3 || max(one_y, two_y) - min(one_y, two_y) > 3)
-            return false;
-
         //check if there is ship too close to a new one
         for (int i = limit(min (one_x, two_x) - 1); i <= limit(max (one_x, two_x) + 1); i++)
             for (int j = limit(min (one_y, two_y) - 1); j <= limit(max (one_y, two_y) + 1); j++)
@@ -184,16 +176,55 @@ public:
         draw_grid(game_win, 11, BETWEEN_FIELDS + 1); //player
         draw_grid(game_win, 11, BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH); //opponent
     }
-    void manage_ship_placement (WINDOW *game_win) const
+    void manage_ship_placement (WINDOW* game_win, FIELD& field)
     {
         mvwprintw(game_win, 3, 45, "Here is your field, chose carefully where to hide your fleet");
-        //draw ships
+        //draw existing ships
         draw_player_ships (game_win, 12, BETWEEN_FIELDS + 3, one);
         draw_enemy_ships (game_win, 12, BETWEEN_FIELDS * 2 + 3 + FIELD_WIDTH, two);
+        int from_x = 4, from_y = 3, to_x = 5, to_y = 3;
         wrefresh(game_win);
-        
 
-
+        int c;
+        while (true) // arrow movement
+        {
+            c = wgetch(game_win);
+            switch (c)
+            {
+                case KEY_DOWN:
+                    if (from_y == 9 || to_y == 9)
+                        break;
+                    from_y++;
+                    to_y++;
+                    break;
+                case KEY_UP:
+                    if (from_y == 0 || to_y == 0)
+                        break;
+                    from_y--;
+                    to_y--;
+                    break;
+                case KEY_LEFT:
+                    if (from_x == 0 || to_x == 0)
+                        break;
+                    from_x--;
+                    to_x--;
+                    break;
+                case KEY_RIGHT:
+                    if (from_x == 9 || to_x == 9)
+                        break;
+                    from_x++;
+                    to_x++;
+                    break;
+                case 10: // Enter
+                    field.add_ship(from_x, from_y, to_x, to_y);
+                    break;
+                default:
+                    continue;
+            }
+            draw_player_ships (game_win, 12, BETWEEN_FIELDS + 3, one);
+            draw_placing_ship (game_win, 12, BETWEEN_FIELDS + 3, from_x, from_y, to_x, to_y);
+            wrefresh(game_win);
+        }
     }
     bool continues () const
     {
@@ -280,7 +311,8 @@ private:
                 switch (field.cell_state(i, j))
                 {
                     case NOT_CHECKED:
-                        continue;
+                        mvwprintw(game_win, start_y+j*2, start_x+i*4, " ");
+                        break;
                     case MISSED:
                         mvwprintw(game_win, start_y+j*2, start_x+i*4, "*");
                         break;
@@ -303,7 +335,8 @@ private:
                 switch (field.cell_state(i, j))
                 {
                     case NOT_CHECKED:
-                        continue;
+                        mvwprintw(game_win, start_y+j*2, start_x+i*4, " ");
+                        break;
                     case MISSED:
                         mvwprintw(game_win, start_y+j*2, start_x+i*4, "*");
                         break;
@@ -311,8 +344,19 @@ private:
                         mvwprintw(game_win, start_y+j*2, start_x+i*4, "X");
                         break;
                     case NOT_HIT:
-                        continue;
+                        mvwprintw(game_win, start_y+j*2, start_x+i*4, " ");
+                        break;
                 }
+            }
+        }
+    }
+    static void draw_placing_ship (WINDOW *game_win, int start_y, int start_x, int from_x, int from_y, int to_x, int to_y)
+    {
+        for (int i = from_x; i <= to_x ; i++)
+        {
+            for (int j = from_y; j <= to_y ; j++)
+            {
+                mvwprintw(game_win, start_y+j*2, start_x+i*4, "@");
             }
         }
     }
@@ -351,7 +395,7 @@ int main() {
         keypad(game_win, TRUE);
 
         game.draw_interface (game_win);
-        game.manage_ship_placement(game_win);
+        game.manage_ship_placement(game_win, game.one);
         sleep (1000);
         while (game.continues())
         {
