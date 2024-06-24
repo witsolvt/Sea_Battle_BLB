@@ -54,7 +54,7 @@ public:
     {
         return map[y][x];
     }
-    bool add_ship (const int one_x, const int one_y, const int two_x, const int two_y)
+    bool add_ship (int one_x, int one_y, int two_x, int two_y)
     {
         //check if there is ship too close to a new one
         for (int i = limit(min (one_x, two_x) - 1); i <= limit(max (one_x, two_x) + 1); i++)
@@ -86,6 +86,9 @@ public:
         {
             alive--;
             map[y][x] = HIT;
+            //check if ship is dead
+            if (!is_ship_alive (x, y, x, y))
+                update_surrounding (x, y, x, y);
             return true;
         }
         if (map[y][x] == HIT  || map[y][x] == MISSED)
@@ -104,6 +107,51 @@ public:
             ships_left[i] = 4-i;
     }
 private:
+    bool is_ship_alive (int x, int y, int x_ignore, int y_ignore)
+    {
+        for (int i = limit (x - 1); i <= limit (x+1); i++)
+        {
+            for (int j = limit (y - 1); j <= limit (y+1); j++)
+            {
+                if ((j == y_ignore && i == x_ignore) || (j == y && i == x))
+                    continue;
+                switch (map[j][i])
+                {
+                    case NOT_HIT:
+                        return true;
+                    case HIT:
+                        if (is_ship_alive (i, j, x, y))
+                            return true;
+                    default:
+                        continue;
+                }
+            }
+        }
+           return false;
+    }
+    void update_surrounding (int x, int y, int x_ignore, int y_ignore)
+    {
+        for (int i = limit (x - 1); i <= limit (x+1); i++)
+        {
+            for (int j = limit (y - 1); j <= limit (y+1); j++)
+            {
+                if ((j == y_ignore && i == x_ignore) || (j == y && i == x))
+                    continue;
+                switch (map[j][i])
+                {
+                    case MISSED:
+                        continue;
+                    case NOT_CHECKED:
+                        map[j][i] = MISSED;
+                        break;
+                    case HIT:
+                        update_surrounding (i, j, x, y);
+                    default:
+                        continue;
+                }
+            }
+        }
+    }
     int ships_left [4]; // index 0 represents 1-decker ship, 1 represents 2-decker, etc.
     int alive;
     int map [10][10];
@@ -121,9 +169,9 @@ public:
             int c;
 
             // draw menu
-            int startx = (COLS - MENU_WIDTH) / 2;
-            int starty = (LINES - MENU_HEIGHT) / 2;
-            WINDOW *menu_win = newwin(MENU_HEIGHT, MENU_WIDTH, starty, startx);
+            int start_x = (COLS - MENU_WIDTH) / 2;
+            int start_y = (LINES - MENU_HEIGHT) / 2;
+            WINDOW *menu_win = newwin(MENU_HEIGHT, MENU_WIDTH, start_y, start_x);
             keypad(menu_win, TRUE);
             box(menu_win, 0, 0);
             print_menu(menu_win, option, menu_options, hints, one_score, two_score);
@@ -469,9 +517,9 @@ int main() {
             return 0;
 
         //create a new window for game
-        int startx = (COLS - GAME_WIDTH) / 2;
-        int starty = (LINES - GAME_HEIGHT) / 2;
-        WINDOW* game_win = newwin(GAME_HEIGHT, GAME_WIDTH, starty, startx);
+        int start_x = (COLS - GAME_WIDTH) / 2;
+        int start_y = (LINES - GAME_HEIGHT) / 2;
+        WINDOW* game_win = newwin(GAME_HEIGHT, GAME_WIDTH, start_y, start_x);
         keypad(game_win, TRUE);
 
         GAME::draw_interface (game_win);
