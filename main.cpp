@@ -44,7 +44,6 @@ public:
         for (int i = 0; i < 4 ; i++)
             ships_left[i] = 4-i;
     }
-
     bool size_remains (int size)
     {
         if (ships_left[size])
@@ -117,8 +116,8 @@ public:
     bool manage_menu() // true - start game, false - quit
     {
         while (true) {
-            int option = 2;
-            int selection = 1;
+            size_t option = 2;
+            size_t selection = 1;
             int c;
 
             // draw menu
@@ -179,18 +178,18 @@ public:
                     endwin();
                     std::cout << "See you later, capitan!" << std::endl;
                     return false;
+                default:
+                    continue;
             }
         }
     }
-
-    void draw_interface(WINDOW *game_win) {
+    static void draw_interface(WINDOW *game_win) {
         box(game_win, 0, 0);
         mvwprintw(game_win, 10, BETWEEN_FIELDS + 3, "~-----------~    You    ~-----------~");
         mvwprintw(game_win, 10, BETWEEN_FIELDS * 2 + 3 + FIELD_WIDTH, "~----------~    Enemy    ~----------~");
         draw_grid(game_win, 11, BETWEEN_FIELDS + 1); //player
         draw_grid(game_win, 11, BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH); //opponent
     }
-
     void manage_ship_placement(WINDOW *game_win, FIELD &field) {
         mvwprintw(game_win, 3, 45, "Here is your field, chose carefully where to hide your fleet");
         //draw existing ships
@@ -263,18 +262,16 @@ public:
             wrefresh(game_win);
         }
     }
-
     bool continues() const {
         return one.check_loss() && two.check_loss();
     }
-
     void player_fires(WINDOW* game_win, int start_x, int start_y, FIELD& field, int* x, int* y)
     {
         do {
             draw_enemy_ships(game_win, start_y, start_x, field);
             draw_aim(game_win, start_y, start_x, *x, *y);
             wrefresh(game_win);
-            int c = 0;
+            int c;
             while (true) // arrow movement
             {
                 c = wgetch(game_win);
@@ -331,10 +328,10 @@ public:
     }
     FIELD one, two;
 private:
-    static void print_menu(WINDOW *menu_win, int highlight, const std::vector<std::string> &choices, bool hints, const int one_score, const int two_score)
+    static void print_menu(WINDOW *menu_win, size_t highlight, const std::vector<std::string> &choices, bool hints, const int one_score, const int two_score)
     {
 
-        int x = (MENU_WIDTH - sizeof (choices[0])) / 2 + 1, y = 0;
+        int x = (MENU_WIDTH - 30) / 2 + 1, y = 0;
         mvwprintw(menu_win, y, x, "%s", choices[0].c_str());
         x = 5;
         y = 3;
@@ -344,24 +341,14 @@ private:
                 wattron(menu_win, A_REVERSE); // Highlight the current choice
                 mvwprintw(menu_win, y, x, "%s", choices[i].c_str());
                 if (i == 2)
-                {
-                    if (hints)
-                        mvwprintw(menu_win, y, MENU_WIDTH * 3 / 4 , "ON");
-                    if (!hints)
-                        mvwprintw(menu_win, y, MENU_WIDTH * 3 / 4, "OFF");
-                }
+                    hints ? mvwprintw(menu_win, y, MENU_WIDTH * 3 / 4 , "ON") : mvwprintw(menu_win, y, MENU_WIDTH * 3 / 4, "OFF");
                 wattroff(menu_win, A_REVERSE);
             }
             else // not selected
             {
                 mvwprintw(menu_win, y, x, "%s", choices[i].c_str());
                 if (i == 2)
-                {
-                    if (hints)
-                        mvwprintw(menu_win, y, MENU_WIDTH * 3 / 4, "ON");
-                    else
-                        mvwprintw(menu_win, y, MENU_WIDTH * 3 / 4, "OFF");
-                }
+                    hints ? mvwprintw(menu_win, y, MENU_WIDTH * 3 / 4 , "ON") : mvwprintw(menu_win, y, MENU_WIDTH * 3 / 4, "OFF");
             }
             y++;
         }
@@ -487,7 +474,7 @@ int main() {
         WINDOW* game_win = newwin(GAME_HEIGHT, GAME_WIDTH, starty, startx);
         keypad(game_win, TRUE);
 
-        game.draw_interface (game_win);
+        GAME::draw_interface (game_win);
         game.manage_ship_placement(game_win, game.one);
 
         int last_fire_x = 0, last_fire_y = 0;
