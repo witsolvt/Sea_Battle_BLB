@@ -156,6 +156,7 @@ private:
     int alive;
     int map [10][10];
 };
+
 class GAME {
 public:
     GAME()
@@ -173,7 +174,6 @@ public:
             int start_y = (LINES - MENU_HEIGHT) / 2;
             WINDOW *menu_win = newwin(MENU_HEIGHT, MENU_WIDTH, start_y, start_x);
             keypad(menu_win, TRUE);
-            box(menu_win, 0, 0);
             print_menu(menu_win, option, menu_options, hints, one_score, two_score);
 
             while (true) // arrow movement
@@ -181,12 +181,16 @@ public:
                 c = wgetch(menu_win);
                 switch (c) {
                     case KEY_UP:
+                    case 'w':
+                    case 'W':
                         if (option == 2)
                             option = menu_options.size();
                         else
                             option--;
                         break;
                     case KEY_DOWN:
+                    case 's':
+                    case 'S':
                         if (option == menu_options.size())
                             option = 2;
                         else
@@ -254,24 +258,32 @@ public:
             c = wgetch(game_win);
             switch (c) {
                 case KEY_DOWN:
+                case 's':
+                case 'S':
                     if (from_y == 9 || to_y == 9)
                         break;
                     from_y++;
                     to_y++;
                     break;
                 case KEY_UP:
+                case 'w':
+                case 'W':
                     if (from_y == 0 || to_y == 0)
                         break;
                     from_y--;
                     to_y--;
                     break;
                 case KEY_LEFT:
+                case 'a':
+                case 'A':
                     if (from_x == 0 || to_x == 0)
                         break;
                     from_x--;
                     to_x--;
                     break;
                 case KEY_RIGHT:
+                case 'd':
+                case 'D':
                     if (from_x == 9 || to_x == 9)
                         break;
                     from_x++;
@@ -326,18 +338,26 @@ public:
                 switch (c)
                 {
                     case KEY_UP:
+                    case 'w':
+                    case 'W':
                         if (*y > 0)
                             (*y)--;
                         break;
                     case KEY_DOWN:
+                    case 's':
+                    case 'S':
                         if (*y < 9)
                             (*y)++;
                         break;
                     case KEY_LEFT:
+                    case 'a':
+                    case 'A':
                         if (*x > 0)
                             (*x)--;
                         break;
                     case KEY_RIGHT:
+                    case 'd':
+                    case 'D':
                         if (*x < 9)
                             (*x)++;
                         break;
@@ -378,7 +398,9 @@ public:
 private:
     static void print_menu(WINDOW *menu_win, size_t highlight, const std::vector<std::string> &choices, bool hints, const int one_score, const int two_score)
     {
-
+        erase();
+        refresh();
+        box(menu_win, 0, 0);
         int x = (MENU_WIDTH - 30) / 2 + 1, y = 0;
         mvwprintw(menu_win, y, x, "%s", choices[0].c_str());
         x = 5;
