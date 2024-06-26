@@ -43,6 +43,8 @@ public:
         alive = 20;
         for (int i = 0; i < 4 ; i++)
             ships_left[i] = 4-i;
+        x_last_fire = 0;
+        y_last_fire = 0;
     }
     bool size_remains (int size)
     {
@@ -103,9 +105,12 @@ public:
             for (int & j : i)
                 j = NOT_CHECKED;
         alive = 20;
+        x_last_fire = 0;
+        y_last_fire = 0;
         for (int i = 0; i < 4 ; i++)
             ships_left[i] = 4-i;
     }
+    int x_last_fire, y_last_fire;
 private:
     bool is_ship_alive (int x, int y, int x_ignore, int y_ignore)
     {
@@ -322,14 +327,15 @@ public:
             wrefresh(game_win);
         }
     }
-    bool continues() const {
+    bool continues() const
+    {
         return one.check_loss() && two.check_loss();
     }
-    void player_fires(WINDOW* game_win, int start_x, int start_y, FIELD& field, int* x, int* y)
+    void player_fires(WINDOW* game_win, int start_x, int start_y, FIELD& field)
     {
         do {
             draw_enemy_ships(game_win, start_y, start_x, field);
-            draw_aim(game_win, start_y, start_x, *x, *y);
+            draw_aim(game_win, start_y, start_x, field.x_last_fire, field.y_last_fire);
             wrefresh(game_win);
             int c;
             while (true) // arrow movement
@@ -340,26 +346,26 @@ public:
                     case KEY_UP:
                     case 'w':
                     case 'W':
-                        if (*y > 0)
-                            (*y)--;
+                        if (field.y_last_fire > 0)
+                            field.y_last_fire--;
                         break;
                     case KEY_DOWN:
                     case 's':
                     case 'S':
-                        if (*y < 9)
-                            (*y)++;
+                        if (field.y_last_fire < 9)
+                            field.y_last_fire++;
                         break;
                     case KEY_LEFT:
                     case 'a':
                     case 'A':
-                        if (*x > 0)
-                            (*x)--;
+                        if (field.x_last_fire > 0)
+                            field.x_last_fire--;
                         break;
                     case KEY_RIGHT:
                     case 'd':
                     case 'D':
-                        if (*x < 9)
-                            (*x)++;
+                        if (field.x_last_fire < 9)
+                            field.x_last_fire++;
                         break;
                     case 10: // Enter
                         break;
@@ -367,19 +373,31 @@ public:
                         continue;
                 }
                 draw_enemy_ships(game_win, start_y, start_x, field);
-                draw_aim(game_win, start_y, start_x, *x, *y);
+                draw_aim(game_win, start_y, start_x, field.x_last_fire, field.y_last_fire);
                 wrefresh(game_win);
                 if (c == 10)
                 {
                     break;
                 }
             }
-        } while (field.fire(*x, *y));
+        } while (field.fire(field.x_last_fire, field.y_last_fire));
     }
-    void bot_fires (WINDOW* game_win, int x, int y)
+    void bot_fires (WINDOW* game_win)
     {
-        one.fire (x, y);
+        while (one.fire ( one.x_last_fire, one.y_last_fire))
+        {
+            one.x_last_fire++;
+            if (one.x_last_fire > 9)
+            {
+                one.x_last_fire = 0;
+                one.y_last_fire++;
+            }
+            draw_player_ships(game_win, 12, BETWEEN_FIELDS + 3, one);
+            wrefresh(game_win);
+            usleep(500000);
+        }
         draw_player_ships(game_win, 12, BETWEEN_FIELDS + 3, one);
+        wrefresh(game_win);
     }
     void increase_one_score ()
     {
@@ -547,40 +565,20 @@ int main() {
         GAME::draw_interface (game_win);
         game.manage_ship_placement(game_win, game.one);
 
-        int last_fire_x = 0, last_fire_y = 0;
-        int a = 0, b = 0;
-        while (true)
+        for (int i = 0; ; i = (i+1)%2 )
         {
-            game.player_fires (game_win, BETWEEN_FIELDS * 2 + 3 + FIELD_WIDTH, 12, game.two, &last_fire_x, &last_fire_y);
+            i ? game.bot_fires(game_win) : game.player_fires (game_win, BETWEEN_FIELDS * 2 + 3 + FIELD_WIDTH, 12, game.two);
             if (!game.continues())
             {
-                game.increase_one_score();
-                mvwprintw(game_win, 5, (GAME_WIDTH - 22) / 2, "You won! Great battle!");
+                i ? mvwprintw(game_win, 5, (GAME_WIDTH - 41) / 2, "You lost :( Wish you more luck next time!") : mvwprintw(game_win, 5, (GAME_WIDTH - 22) / 2, "You won! Great battle!");
+                i ? game.increase_two_score() : game.increase_one_score();
+
                 mvwprintw(game_win, 6, (GAME_WIDTH - 23) / 2, "Press any key to continue");
                 wgetch(game_win);
                 delwin(game_win);
                 refresh();
                 game.reset_fields();
                 break;
-            }
-            game.bot_fires(game_win, a, b);
-            wrefresh(game_win);
-            if (!game.continues())
-            {
-                game.increase_two_score();
-                mvwprintw(game_win, 5, (GAME_WIDTH - 41) / 2, "You lost :( Wish you more luck next time!");
-                mvwprintw(game_win, 6, (GAME_WIDTH - 23) / 2, "Press any key to continue");
-                wgetch(game_win);
-                delwin(game_win);
-                refresh();
-                game.reset_fields();
-                break;
-            }
-            a++;
-            if (a > 9)
-            {
-                a = 0;
-                b++;
             }
         }
     }
