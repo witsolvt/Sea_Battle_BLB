@@ -3,6 +3,8 @@
 #include <string>
 #include <unistd.h>
 #include <ncurses.h>
+#include <cstdlib>
+#include <ctime>
 
 #define min(a, b) (( a < b ) ? a : b)
 #define max(a, b) (( a < b ) ? b : a)
@@ -36,19 +38,17 @@ const std::vector<std::string> menu_options = {
 class FIELD {
 public:
     FIELD ()
+    : alive (20), x_last_fire (0), y_last_fire (0)
     {
         for (auto & i : map)
             for (int & j : i)
                 j = NOT_CHECKED;
-        alive = 20;
         for (int i = 0; i < 4 ; i++)
-            ships_left[i] = 4-i;
-        x_last_fire = 0;
-        y_last_fire = 0;
+            ships_not_placed[i] = 4 - i;
     }
     bool size_remains (int size)
     {
-        if (ships_left[size])
+        if (ships_not_placed[size])
             return true;
         return false;
     }
@@ -70,7 +70,7 @@ public:
                 map[j][i] = NOT_HIT;
 
         int size = max (max(one_x, two_x) - min(one_x, two_x), max(one_y, two_y) - min(one_y, two_y));
-        ships_left[size]--;
+        ships_not_placed[size]--;
         return true;
     }
     bool check_loss () const
@@ -108,7 +108,7 @@ public:
         x_last_fire = 0;
         y_last_fire = 0;
         for (int i = 0; i < 4 ; i++)
-            ships_left[i] = 4-i;
+            ships_not_placed[i] = 4 - i;
     }
     int x_last_fire, y_last_fire;
 private:
@@ -157,7 +157,7 @@ private:
             }
         }
     }
-    int ships_left [4]; // index 0 represents 1-decker ship, 1 represents 2-decker, etc.
+    int ships_not_placed [4]; // index 0 represents 1-decker ship, 1 represents 2-decker, etc.
     int alive;
     int map [10][10];
 };
@@ -166,7 +166,6 @@ class GAME {
 public:
     GAME()
             : one_score(0), two_score(0), hints(false) {}
-
     bool manage_menu() // true - start game, false - quit
     {
         while (true) {
@@ -386,15 +385,12 @@ public:
     {
         while (one.fire ( one.x_last_fire, one.y_last_fire))
         {
-            one.x_last_fire++;
-            if (one.x_last_fire > 9)
-            {
-                one.x_last_fire = 0;
-                one.y_last_fire++;
-            }
+            if (one.cell_state(one.x_last_fire, one.y_last_fire) == HIT)
+                usleep(500000);
+            one.x_last_fire = rand() % 10;
+            one.y_last_fire = rand() % 10;
             draw_player_ships(game_win, 12, BETWEEN_FIELDS + 3, one);
             wrefresh(game_win);
-            usleep(500000);
         }
         draw_player_ships(game_win, 12, BETWEEN_FIELDS + 3, one);
         wrefresh(game_win);
@@ -411,6 +407,24 @@ public:
     {
     one.reset();
     two.reset();
+    }
+    void ships_auto_place (FIELD& field)
+    {
+        int ship_size = 3;
+        srand (time(nullptr));
+
+        while (ship_size != -1)
+        {
+            int x_from = rand() % 10;
+            int y_from = rand() % 10;
+            int x_to = x_from, y_to = y_from;
+            rand() % 2 ? x_to += ship_size : y_to += ship_size;
+            if (x_to > 9 || y_to > 9)
+                continue;
+            field.add_ship(x_from, y_from, x_to, y_to);
+            if (!field.size_remains(ship_size))
+                ship_size--;
+        }
     }
     FIELD one, two;
 private:
@@ -488,7 +502,7 @@ private:
                         mvwprintw(game_win, start_y+j*2, start_x+i*4, " ");
                         break;
                     case MISSED:
-                        mvwprintw(game_win, start_y+j*2, start_x+i*4, "*");
+                        mvwprintw(game_win, start_y+j*2, start_x+i*4, ".");
                         break;
                     case HIT:
                         mvwprintw(game_win, start_y+j*2, start_x+i*4, "X");
@@ -512,7 +526,7 @@ private:
                         mvwprintw(game_win, start_y+j*2, start_x+i*4, " ");
                         break;
                     case MISSED:
-                        mvwprintw(game_win, start_y+j*2, start_x+i*4, "*");
+                        mvwprintw(game_win, start_y+j*2, start_x+i*4, ".");
                         break;
                     case HIT:
                         mvwprintw(game_win, start_y+j*2, start_x+i*4, "X");
@@ -564,8 +578,9 @@ int main() {
 
         GAME::draw_interface (game_win);
         game.manage_ship_placement(game_win, game.one);
+        game.ships_auto_place (game.two);
 
-        for (int i = 0; ; i = (i+1)%2 )
+        for (int i = 1; ; i = (i+1)%2 )
         {
             i ? game.bot_fires(game_win) : game.player_fires (game_win, BETWEEN_FIELDS * 2 + 3 + FIELD_WIDTH, 12, game.two);
             if (!game.continues())
