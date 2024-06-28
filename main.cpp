@@ -239,26 +239,36 @@ public:
             }
         }
     }
-    static void draw_interface(WINDOW *game_win) {
+    static void draw_fight_interface(WINDOW *game_win, FIELD& player) {
+        werase(game_win);
+        wrefresh(game_win);
         box(game_win, 0, 0);
         mvwprintw(game_win, 10, BETWEEN_FIELDS + 3, "~-----------~    You    ~-----------~");
         mvwprintw(game_win, 10, BETWEEN_FIELDS * 2 + 3 + FIELD_WIDTH, "~----------~    Enemy    ~----------~");
         draw_grid(game_win, 11, BETWEEN_FIELDS + 1); //player
         draw_grid(game_win, 11, BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH); //opponent
+        GAME::draw_player_ships(game_win, 12, BETWEEN_FIELDS + 3, player);
+    }
+    static void draw_placing_interface(WINDOW *game_win) {
+        werase(game_win);
+        wrefresh(game_win);
+        box(game_win, 0, 0);
+        mvwprintw(game_win, 10, BETWEEN_FIELDS + 3, "~-----------~    You    ~-----------~");
+        draw_grid(game_win, 11, BETWEEN_FIELDS + 1);
+        mvwprintw(game_win, 3, 45, "Here is your field, chose carefully where to hide your fleet");
+        mvwprintw(game_win, 19, BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, "[Q] Reset");
+        mvwprintw(game_win, 21, BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, "[E] Auto-place");
     }
     void manage_ship_placement(WINDOW *game_win, FIELD &field) {
-        mvwprintw(game_win, 3, 45, "Here is your field, chose carefully where to hide your fleet");
-        //draw existing ships
-        draw_player_ships(game_win, 12, BETWEEN_FIELDS + 3, one);
+        draw_placing_interface (game_win);
         int ship_size = 3; // actually represents the size of 4
         int from_x = 3, from_y = 4, to_x = from_x + ship_size, to_y = 4;
         draw_placing_ship(game_win, 12, BETWEEN_FIELDS + 3, from_x, from_y, to_x, to_y);
         wrefresh(game_win);
 
-        int c;
-        while (ship_size != -1) // arrow movement
+        int c = 0;
+        while (c != 10 || one.size_remains(0)) // arrow movement
         {
-
             c = wgetch(game_win);
             switch (c) {
                 case KEY_DOWN:
@@ -311,9 +321,25 @@ public:
                         to_x = 9;
                     }
                     break;
+                case 'Q':
+                case 'q':
+                    field.reset();
+                    ship_size = 3;
+                    from_x = 3, from_y = 4, to_x = from_x + ship_size, to_y = 4;
+                    break;
+                case 'E':
+                case 'e':
+                    if (!one.size_remains(0))
+                    {
+                        field.reset();
+                    }
+                    GAME::ships_auto_place(field);
+                    ship_size = 0;
+                    break;
                 case 10: // Enter
                     field.add_ship(from_x, from_y, to_x, to_y);
-                    if (!one.size_remains(ship_size)) {
+                    if (!one.size_remains(ship_size))
+                    {
                         ship_size--;
                         from_x == to_x ? to_y-- : to_x--;
                     }
@@ -408,12 +434,12 @@ public:
     one.reset();
     two.reset();
     }
-    void ships_auto_place (FIELD& field)
+    static void ships_auto_place (FIELD& field)
     {
         int ship_size = 3;
         srand (time(nullptr));
 
-        while (ship_size != -1)
+        while (field.size_remains(0))
         {
             int x_from = rand() % 10;
             int y_from = rand() % 10;
@@ -576,11 +602,10 @@ int main() {
         WINDOW* game_win = newwin(GAME_HEIGHT, GAME_WIDTH, start_y, start_x);
         keypad(game_win, TRUE);
 
-        GAME::draw_interface (game_win);
         game.manage_ship_placement(game_win, game.one);
-        game.ships_auto_place (game.two);
-
-        for (int i = 1; ; i = (i+1)%2 )
+        GAME::ships_auto_place (game.two);
+        GAME::draw_fight_interface (game_win, game.one);
+        for (int i = 0; ; i = (i+1)%2 )
         {
             i ? game.bot_fires(game_win) : game.player_fires (game_win, BETWEEN_FIELDS * 2 + 3 + FIELD_WIDTH, 12, game.two);
             if (!game.continues())
