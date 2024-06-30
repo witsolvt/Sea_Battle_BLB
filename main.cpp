@@ -244,27 +244,12 @@ public:
             }
         }
     }
-    static void draw_fight_interface(WINDOW *game_win, FIELD& player) {
-        werase(game_win);
-        wrefresh(game_win);
-        box(game_win, 0, 0);
-        mvwprintw(game_win, 10, BETWEEN_FIELDS + 3, "~-----------~    You    ~-----------~");
-        mvwprintw(game_win, 10, BETWEEN_FIELDS * 2 + 3 + FIELD_WIDTH, "~----------~    Enemy    ~----------~");
-        draw_grid(game_win, {BETWEEN_FIELDS + 1, 11}); //player
-        draw_grid(game_win, {BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, 11}); //opponent
-        GAME::draw_player_ships(game_win, {BETWEEN_FIELDS + 3, 12}, player);
-    }
-    static void draw_placing_interface(WINDOW *game_win) {
-        werase(game_win);
-        wrefresh(game_win);
-        box(game_win, 0, 0);
-        mvwprintw(game_win, 10, BETWEEN_FIELDS + 3, "~-----------~    You    ~-----------~");
-        draw_grid(game_win, {BETWEEN_FIELDS + 1, 11});
-        mvwprintw(game_win, 3, 45, "Here is your field, chose carefully where to hide your fleet");
-        mvwprintw(game_win, 19, BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, "[Q] Reset");
-        mvwprintw(game_win, 21, BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, "[E] Auto-place");
-    }
-    void manage_ship_placement(WINDOW *game_win, FIELD &field) {
+    void manage_ship_placement(WINDOW *game_win) {
+
+        //place bots ships
+        GAME::ships_auto_place (two);
+
+        //place players ships
         draw_placing_interface (game_win);
         int ship_size = 3; // actually represents the size of 4
         coordinates from (3, 4), to (from.x + ship_size, 4);
@@ -328,7 +313,7 @@ public:
                     break;
                 case 'Q':
                 case 'q':
-                    field.reset();
+                    one.reset();
                     ship_size = 3;
                     from.x = 3, from.y = 4, to.x = from.x + ship_size, to.y = 4;
                     break;
@@ -336,13 +321,13 @@ public:
                 case 'e':
                     if (!one.size_remains(0))
                     {
-                        field.reset();
+                        one.reset();
                     }
-                    GAME::ships_auto_place(field);
+                    GAME::ships_auto_place(one);
                     ship_size = 0;
                     break;
                 case 10: // Enter
-                    field.add_ship(from, to);
+                    one.add_ship(from, to);
                     if (!one.size_remains(ship_size))
                     {
                         ship_size--;
@@ -357,11 +342,52 @@ public:
             wrefresh(game_win);
         }
     }
+    void manage_ongoing_fight (WINDOW *game_win)
+    {
+        GAME::draw_fight_interface (game_win, one);
+        for (int i = 0; ; i = (i+1)%2 )
+        {
+            i ? bot_fires(game_win) : player_fires (game_win, {BETWEEN_FIELDS * 2 + 3 + FIELD_WIDTH, 12}, two);
+            if (!continues())
+            {
+                i ? mvwprintw(game_win, 5, (GAME_WIDTH - 41) / 2, "You lost :( Wish you more luck next time!") : mvwprintw(game_win, 5, (GAME_WIDTH - 22) / 2, "You won! Great battle!");
+                i ? two_score++ : one_score++;
+
+                mvwprintw(game_win, 6, (GAME_WIDTH - 23) / 2, "Press any key to continue");
+                wgetch(game_win);
+                delwin(game_win);
+                refresh();
+                reset_fields();
+                break;
+            }
+        }
+    }
+private:
+    static void draw_fight_interface(WINDOW *game_win, FIELD& player) {
+        werase(game_win);
+        wrefresh(game_win);
+        box(game_win, 0, 0);
+        mvwprintw(game_win, 10, BETWEEN_FIELDS + 3, "~-----------~    You    ~-----------~");
+        mvwprintw(game_win, 10, BETWEEN_FIELDS * 2 + 3 + FIELD_WIDTH, "~----------~    Enemy    ~----------~");
+        draw_grid(game_win, {BETWEEN_FIELDS + 1, 11}); //player
+        draw_grid(game_win, {BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, 11}); //opponent
+        GAME::draw_player_ships(game_win, {BETWEEN_FIELDS + 3, 12}, player);
+    }
+    static void draw_placing_interface(WINDOW *game_win) {
+        werase(game_win);
+        wrefresh(game_win);
+        box(game_win, 0, 0);
+        mvwprintw(game_win, 10, BETWEEN_FIELDS + 3, "~-----------~    You    ~-----------~");
+        draw_grid(game_win, {BETWEEN_FIELDS + 1, 11});
+        mvwprintw(game_win, 3, 45, "Here is your field, chose carefully where to hide your fleet");
+        mvwprintw(game_win, 19, BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, "[Q] Reset");
+        mvwprintw(game_win, 21, BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, "[E] Auto-place");
+    }
     bool continues() const
     {
         return one.check_loss() && two.check_loss();
     }
-    void player_fires(WINDOW* game_win, coordinates window, FIELD& field)
+    static void player_fires(WINDOW* game_win, coordinates window, FIELD& field)
     {
         do {
             draw_enemy_ships(game_win, window, field);
@@ -426,14 +452,6 @@ public:
         draw_player_ships(game_win, {BETWEEN_FIELDS + 3, 12}, one);
         wrefresh(game_win);
     }
-    void increase_one_score ()
-    {
-        one_score++;
-    }
-    void increase_two_score ()
-    {
-    two_score++;
-    }
     void reset_fields ()
     {
     one.reset();
@@ -456,8 +474,6 @@ public:
                 ship_size--;
         }
     }
-    FIELD one, two;
-private:
     static void print_menu(WINDOW *menu_win, size_t highlight, const std::vector<std::string> &choices, bool hints, const int one_score, const int two_score)
     {
         erase();
@@ -584,9 +600,8 @@ private:
     }
     bool hints;
     int one_score, two_score;
+    FIELD one, two;
 };
-
-
 
 int main() {
     GAME game;
@@ -606,24 +621,10 @@ int main() {
         WINDOW* game_win = newwin(GAME_HEIGHT, GAME_WIDTH, start_y, start_x);
         keypad(game_win, TRUE);
 
-        game.manage_ship_placement(game_win, game.one);
-        GAME::ships_auto_place (game.two);
-        GAME::draw_fight_interface (game_win, game.one);
-        for (int i = 0; ; i = (i+1)%2 )
-        {
-            i ? game.bot_fires(game_win) : game.player_fires (game_win, {BETWEEN_FIELDS * 2 + 3 + FIELD_WIDTH, 12}, game.two);
-            if (!game.continues())
-            {
-                i ? mvwprintw(game_win, 5, (GAME_WIDTH - 41) / 2, "You lost :( Wish you more luck next time!") : mvwprintw(game_win, 5, (GAME_WIDTH - 22) / 2, "You won! Great battle!");
-                i ? game.increase_two_score() : game.increase_one_score();
+        //sets ships for both player and bot
+        game.manage_ship_placement(game_win);
 
-                mvwprintw(game_win, 6, (GAME_WIDTH - 23) / 2, "Press any key to continue");
-                wgetch(game_win);
-                delwin(game_win);
-                refresh();
-                game.reset_fields();
-                break;
-            }
-        }
+        //cycle in witch player and bot fire each other until someone wins
+        game.manage_ongoing_fight (game_win);
     }
 }
