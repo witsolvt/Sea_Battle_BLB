@@ -460,10 +460,29 @@ private:
         {
             if (one.cell_state(bot_future_moves.front()) == HIT)
                 usleep(300000);
+            coordinates hit = bot_future_moves.front();
+            bot_future_moves.pop_front();
+
+            int check = one.cell_state(coordinates(hit.x, limit(hit.y-1)));
+            if(check == NOT_CHECKED || check ==  NOT_HIT)
+                bot_future_moves.emplace_front(hit.x, hit.y-1);
+
+            check = one.cell_state(coordinates(hit.x, limit(hit.y+1)));
+            if(check == NOT_CHECKED || check ==  NOT_HIT)
+                bot_future_moves.emplace_front(hit.x, hit.y+1);
+
+            check = one.cell_state(coordinates(limit(hit.x+1), hit.y));
+            if(check == NOT_CHECKED || check ==  NOT_HIT)
+                bot_future_moves.emplace_front(hit.x+1, hit.y);
+
+            check = one.cell_state(coordinates(limit(hit.x-1), hit.y));
+            if(check == NOT_CHECKED || check ==  NOT_HIT)
+                bot_future_moves.emplace_front(hit.x-1, hit.y);
+
             draw_player_ships(game_win, {BETWEEN_FIELDS + 3, 12}, one);
             wrefresh(game_win);
-            bot_future_moves.pop_front();
         }
+        bot_future_moves.pop_front();
         draw_player_ships(game_win, {BETWEEN_FIELDS + 3, 12}, one);
         wrefresh(game_win);
     }
