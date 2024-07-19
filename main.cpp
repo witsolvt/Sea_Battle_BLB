@@ -5,6 +5,9 @@
 #include <ncurses.h>
 #include <cstdlib>
 #include <ctime>
+#include <deque>
+#include <algorithm>
+#include <random>
 
 #define min(a, b) (( a < b ) ? a : b)
 #define max(a, b) (( a < b ) ? b : a)
@@ -346,9 +349,20 @@ public:
     void manage_ongoing_fight (WINDOW *game_win)
     {
         GAME::draw_fight_interface (game_win, one);
+
+        //create all possible options
+        std::deque <coordinates> bot_future_moves;
+        for (int i = 0; i < 10; i++)
+            for (int j = 0; j < 10; j++)
+                bot_future_moves.emplace_back(i,j);
+        //shuffle them
+        std::random_device rd;
+        std::mt19937 g(rd());
+        std::shuffle(bot_future_moves.begin(), bot_future_moves.end(), g);
+
         for (int i = 0; ; i = (i+1)%2 )
         {
-            i ? bot_fires(game_win) : player_fires (game_win, {BETWEEN_FIELDS * 2 + 3 + FIELD_WIDTH, 12}, two);
+            i ? bot_fires(game_win, bot_future_moves) : player_fires (game_win, {BETWEEN_FIELDS * 2 + 3 + FIELD_WIDTH, 12}, two);
             if (!continues())
             {
                 i ? mvwprintw(game_win, 5, (GAME_WIDTH - 41) / 2, "You lost :( Wish you more luck next time!") : mvwprintw(game_win, 5, (GAME_WIDTH - 22) / 2, "You won! Great battle!");
@@ -440,16 +454,15 @@ private:
             }
         } while (field.fire(field.last_fire));
     }
-    void bot_fires (WINDOW* game_win)
+    void bot_fires (WINDOW* game_win, std::deque <coordinates> & bot_future_moves)
     {
-        while (one.fire ( one.last_fire))
+        while (one.fire ( bot_future_moves.front()))
         {
-            if (one.cell_state(one.last_fire) == HIT)
-                usleep(500000);
-            one.last_fire.x = rand() % 10;
-            one.last_fire.y = rand() % 10;
+            if (one.cell_state(bot_future_moves.front()) == HIT)
+                usleep(300000);
             draw_player_ships(game_win, {BETWEEN_FIELDS + 3, 12}, one);
             wrefresh(game_win);
+            bot_future_moves.pop_front();
         }
         draw_player_ships(game_win, {BETWEEN_FIELDS + 3, 12}, one);
         wrefresh(game_win);
