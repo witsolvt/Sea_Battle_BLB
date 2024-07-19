@@ -43,19 +43,15 @@ struct coordinates {
 class FIELD {
 public:
     FIELD ()
-    : alive (20), last_fire(0, 0)
+    : alive (20), last_fire(0, 0), ships_not_placed {4, 3, 2, 1}
     {
         for (auto & i : map)
             for (int & j : i)
                 j = NOT_CHECKED;
-        for (int i = 0; i < 4 ; i++)
-            ships_not_placed[i] = 4 - i;
     }
     bool size_remains (int size)
     {
-        if (ships_not_placed[size])
-            return true;
-        return false;
+        return ships_not_placed[size];
     }
     int cell_state(coordinates check) const
     {
@@ -257,7 +253,7 @@ public:
         wrefresh(game_win);
 
         int c = 0;
-        while (c != 10 || one.size_remains(0)) // arrow movement
+        while (c != 1) // arrow movement
         {
             c = wgetch(game_win);
             switch (c) {
@@ -323,7 +319,7 @@ public:
                     {
                         one.reset();
                     }
-                    GAME::ships_auto_place(one);
+                    GAME::ships_auto_place(one, ship_size);
                     ship_size = 0;
                     break;
                 case 10: // Enter
@@ -333,12 +329,15 @@ public:
                         ship_size--;
                         from.x == to.x ? to.y-- : to.x--;
                     }
+                    if (!one.size_remains(0)) // end ships placement
+                        c = 1;
                     break;
                 default:
                     continue;
             }
             draw_player_ships(game_win, {BETWEEN_FIELDS + 3, 12}, one);
-            draw_placing_ship(game_win, {BETWEEN_FIELDS + 3, 12}, from, to);
+            if (one.size_remains(0))
+                draw_placing_ship(game_win, {BETWEEN_FIELDS + 3, 12}, from, to);
             wrefresh(game_win);
         }
     }
@@ -379,9 +378,10 @@ private:
         box(game_win, 0, 0);
         mvwprintw(game_win, 10, BETWEEN_FIELDS + 3, "~-----------~    You    ~-----------~");
         draw_grid(game_win, {BETWEEN_FIELDS + 1, 11});
-        mvwprintw(game_win, 3, 45, "Here is your field, chose carefully where to hide your fleet");
-        mvwprintw(game_win, 19, BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, "[Q] Reset");
-        mvwprintw(game_win, 21, BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, "[E] Auto-place");
+        mvwprintw(game_win, 4, 45, "Here is your field, chose carefully where to hide your ships");
+        mvwprintw(game_win, 18, BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, "[Enter] Place/Start");
+        mvwprintw(game_win, 20, BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, "[E] Auto-place");
+        mvwprintw(game_win, 22, BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, "[Q] Reset");
     }
     bool continues() const
     {
@@ -457,9 +457,8 @@ private:
     one.reset();
     two.reset();
     }
-    static void ships_auto_place (FIELD& field)
+    static void ships_auto_place (FIELD& field, int ship_size = 3)
     {
-        int ship_size = 3;
         srand (time(nullptr));
 
         while (field.size_remains(0))
