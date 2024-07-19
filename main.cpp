@@ -31,7 +31,7 @@ enum cell_state
     NOT_HIT
 };
 const std::vector<std::string> menu_options = {
-        "**X Welcome to sea battle! X**", "Start", "Hints", "Reset score", "Quit"
+        "**X Welcome to Sea battle! X**", "Start", "Hints", "Reset score", "Quit"
 };
 struct coordinates {
     coordinates (int x_, int y_)
@@ -92,6 +92,8 @@ public:
             //check if ship is dead
             if (!is_ship_alive (fire, fire))
                 update_surrounding (fire, fire);
+            if (!alive)
+                return false;
             return true;
         }
         if (map[fire.y][fire.x] == HIT  || map[fire.y][fire.x] == MISSED)
@@ -500,7 +502,17 @@ private:
             y++;
         }
         mvwprintw(menu_win, 8, (MENU_WIDTH - 5) / 2, "SCORE");
-        mvwprintw(menu_win, 9, (MENU_WIDTH - 5) / 2, "%d : %d", one_score, two_score);
+
+        wattron(menu_win, COLOR_PAIR(3));
+        mvwprintw(menu_win, 9, (MENU_WIDTH - 5) / 2, "%d", one_score);
+        wattroff(menu_win, COLOR_PAIR(3));
+
+        mvwprintw(menu_win, 9, 2 + (MENU_WIDTH - 5) / 2, ":");
+
+        wattron(menu_win, COLOR_PAIR(1));
+        mvwprintw(menu_win, 9, 4 + (MENU_WIDTH - 5) / 2, "%d", two_score);
+        wattroff(menu_win, COLOR_PAIR(1));
+
         wrefresh(menu_win);
     }
     static void draw_grid(WINDOW *game_win, coordinates window) {
@@ -550,7 +562,9 @@ private:
                         mvwprintw(game_win, window.y+j*2, window.x+i*4, ".");
                         break;
                     case HIT:
+                        wattron(game_win, COLOR_PAIR(1));
                         mvwprintw(game_win, window.y+j*2, window.x+i*4, "X");
+                        wattroff(game_win, COLOR_PAIR(1));
                         break;
                     case NOT_HIT:
                         mvwprintw(game_win, window.y+j*2, window.x+i*4, "#");
@@ -574,7 +588,9 @@ private:
                         mvwprintw(game_win, window.y+j*2, window.x+i*4, ".");
                         break;
                     case HIT:
+                        wattron(game_win, COLOR_PAIR(1));
                         mvwprintw(game_win, window.y+j*2, window.x+i*4, "X");
+                        wattroff(game_win, COLOR_PAIR(1));
                         break;
                     case NOT_HIT:
                         mvwprintw(game_win, window.y+j*2, window.x+i*4, " ");
@@ -585,6 +601,7 @@ private:
     }
     static void draw_placing_ship (WINDOW *game_win, coordinates window, coordinates from, coordinates to)
     {
+        wattron(game_win, COLOR_PAIR(2));
         for (int i = from.x; i <= to.x ; i++)
         {
             for (int j = from.y; j <= to.y ; j++)
@@ -592,10 +609,13 @@ private:
                 mvwprintw(game_win, window.y+j*2, window.x+i*4, "@");
             }
         }
+        wattroff(game_win, COLOR_PAIR(2));
     }
     static void draw_aim (WINDOW *game_win, coordinates window, coordinates aim)
     {
+        wattron(game_win, COLOR_PAIR(2));
         mvwprintw(game_win, window.y+aim.y*2, window.x+aim.x*4, "+");
+        wattroff(game_win, COLOR_PAIR(2));
     }
     bool hints;
     int one_score, two_score;
@@ -607,6 +627,10 @@ int main() {
     while (true)
     {
         initscr();
+        start_color();
+        init_pair(1, COLOR_RED, COLOR_BLACK);
+        init_pair(2, COLOR_YELLOW, COLOR_BLACK);
+        init_pair(3, COLOR_BLUE, COLOR_BLACK);
         cbreak();
         noecho();
         keypad(stdscr, TRUE);
