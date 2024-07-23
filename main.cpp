@@ -3,8 +3,6 @@
 #include <string>
 #include <unistd.h>
 #include <ncurses.h>
-#include <cstdlib>
-#include <ctime>
 #include <deque>
 #include <algorithm>
 #include <random>
@@ -493,13 +491,15 @@ private:
     }
     static void ships_auto_place (FIELD& field, int ship_size = 3)
     {
-        srand (time(nullptr));
-
         while (field.size_remains(0))
         {
-            coordinates from (rand() % 10, rand() % 10);
+            std::random_device rd;
+            std::mt19937 g(rd());
+            std::uniform_int_distribution<> dist(0, 9);
+
+            coordinates from (dist(g), dist(g));
             coordinates to = from;
-            rand() % 2 ? to.x += ship_size : to.y += ship_size;
+            dist(g) % 2 ? to.x += ship_size : to.y += ship_size;
             if (to.x > 9 || to.y > 9)
                 continue;
             field.add_ship(from, to);
