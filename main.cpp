@@ -44,60 +44,60 @@ struct coordinates {
 class FIELD {
 public:
     FIELD ()
-    : alive (20), last_fire(0, 0), ships_not_placed {4, 3, 2, 1}
+    : m_alive (20), last_fire(0, 0), m_ships_not_placed {4, 3, 2, 1}
     {
-        for (auto & i : map)
+        for (auto & i : m_map)
             for (int & j : i)
                 j = NOT_CHECKED;
     }
     bool size_remains (int size)
     {
-        return ships_not_placed[size];
+        return m_ships_not_placed[size];
     }
     int cell_state(coordinates check) const
     {
-        return map[check.y][check.x];
+        return m_map[check.y][check.x];
     }
     bool add_ship (coordinates from, coordinates to)
     {
-        //check if there is ship too close to a new one
+        //check if there is ship too close to a new m_one
         for (int i = limit(min (from.x, to.x) - 1); i <= limit(max (from.x, to.x) + 1); i++)
             for (int j = limit(min (from.y, to.y) - 1); j <= limit(max (from.y, to.y) + 1); j++)
-                if (map[j][i] == NOT_HIT)
+                if (m_map[j][i] == NOT_HIT)
                     return false;
 
-        //add ship to the map
+        //add ship to the m_map
         for (int i = min (from.x, to.x); i <= max (from.x, to.x); i++)
             for (int j = min (from.y, to.y); j <= max (from.y, to.y); j++)
-                map[j][i] = NOT_HIT;
+                m_map[j][i] = NOT_HIT;
 
         int size = max (max(from.x, to.x) - min(from.x, to.x), max(from.y, to.y) - min(from.y, to.y));
-        ships_not_placed[size]--;
+        m_ships_not_placed[size]--;
         return true;
     }
     bool check_loss () const
     {
-        return alive;
+        return m_alive;
     }
     bool fire (coordinates fire) // false - done, true - continue fire
     {
-        if (map[fire.y][fire.x] == NOT_CHECKED)
+        if (m_map[fire.y][fire.x] == NOT_CHECKED)
         {
-            map[fire.y][fire.x] = MISSED;
+            m_map[fire.y][fire.x] = MISSED;
             return false;
         }
-        if (map[fire.y][fire.x] == NOT_HIT)
+        if (m_map[fire.y][fire.x] == NOT_HIT)
         {
-            alive--;
-            map[fire.y][fire.x] = HIT;
+            m_alive--;
+            m_map[fire.y][fire.x] = HIT;
             //check if ship is dead
             if (!is_ship_alive (fire, fire))
                 update_surrounding (fire, fire);
-            if (!alive)
+            if (!m_alive)
                 return false;
             return true;
         }
-        if (map[fire.y][fire.x] == HIT  || map[fire.y][fire.x] == MISSED)
+        if (m_map[fire.y][fire.x] == HIT || m_map[fire.y][fire.x] == MISSED)
         {
             return true;
         }
@@ -105,14 +105,14 @@ public:
     }
     void reset ()
     {
-        for (auto & i : map)
+        for (auto & i : m_map)
             for (int & j : i)
                 j = NOT_CHECKED;
-        alive = 20;
+        m_alive = 20;
         last_fire.x = 0;
         last_fire.y = 0;
         for (int i = 0; i < 4 ; i++)
-            ships_not_placed[i] = 4 - i;
+            m_ships_not_placed[i] = 4 - i;
     }
     coordinates last_fire;
 private:
@@ -124,7 +124,7 @@ private:
             {
                 if ((j == ignore.y && i == ignore.x) || (j == check.y && i == check.x))
                     continue;
-                switch (map[j][i])
+                switch (m_map[j][i])
                 {
                     case NOT_HIT:
                         return true;
@@ -146,12 +146,12 @@ private:
             {
                 if ((j == ignore.y && i == ignore.x) || (j == update.y && i == update.x))
                     continue;
-                switch (map[j][i])
+                switch (m_map[j][i])
                 {
                     case MISSED:
                         continue;
                     case NOT_CHECKED:
-                        map[j][i] = MISSED;
+                        m_map[j][i] = MISSED;
                         break;
                     case HIT:
                         update_surrounding ({i, j}, update);
@@ -161,15 +161,15 @@ private:
             }
         }
     }
-    int ships_not_placed [4]; // index 0 represents 1-decker ship, 1 represents 2-decker, etc.
-    int alive;
-    int map [10][10];
+    int m_ships_not_placed [4]; // index 0 represents 1-decker ship, 1 represents 2-decker, etc.
+    int m_alive;
+    int m_map [10][10];
 };
 
 class GAME {
 public:
     GAME()
-            : one_score(0), two_score(0), hints(false) {}
+            : m_one_score(0), m_two_score(0), m_hints(false) {}
     bool manage_menu() // true - start game, false - quit
     {
         while (true) {
@@ -182,7 +182,7 @@ public:
             int start_y = (LINES - MENU_HEIGHT) / 2;
             WINDOW *menu_win = newwin(MENU_HEIGHT, MENU_WIDTH, start_y, start_x);
             keypad(menu_win, TRUE);
-            print_menu(menu_win, option, menu_options, hints, one_score, two_score);
+            print_menu(menu_win, option, menu_options, m_hints, m_one_score, m_two_score);
 
             while (true) // arrow movement
             {
@@ -210,7 +210,7 @@ public:
                     default:
                         break;
                 }
-                print_menu(menu_win, option, menu_options, hints, one_score, two_score);
+                print_menu(menu_win, option, menu_options, m_hints, m_one_score, m_two_score);
                 if (selection != 1) // player made a choice
                     break;
             }
@@ -223,15 +223,15 @@ public:
                     clear();
                     return true;
                 case 3:
-                    if (!hints) {
-                        hints = true;
+                    if (!m_hints) {
+                        m_hints = true;
                         break;
                     }
-                    hints = false;
+                    m_hints = false;
                     break;
                 case 4:
-                    one_score = 0;
-                    two_score = 0;
+                    m_one_score = 0;
+                    m_two_score = 0;
                     break;
                 case 5:
                     delwin(menu_win);
@@ -246,7 +246,7 @@ public:
     void manage_ship_placement(WINDOW *game_win) {
 
         //place bots ships
-        GAME::ships_auto_place (two);
+        GAME::ships_auto_place (m_two);
 
         //place players ships
         draw_placing_interface (game_win);
@@ -312,41 +312,41 @@ public:
                     break;
                 case 'Q':
                 case 'q':
-                    one.reset();
+                    m_one.reset();
                     ship_size = 3;
                     from.x = 3, from.y = 4, to.x = from.x + ship_size, to.y = 4;
                     break;
                 case 'E':
                 case 'e':
-                    if (!one.size_remains(0))
+                    if (!m_one.size_remains(0))
                     {
-                        one.reset();
+                        m_one.reset();
                     }
-                    GAME::ships_auto_place(one, ship_size);
+                    GAME::ships_auto_place(m_one, ship_size);
                     ship_size = 0;
                     break;
                 case 10: // Enter
-                    one.add_ship(from, to);
-                    if (!one.size_remains(ship_size))
+                    m_one.add_ship(from, to);
+                    if (!m_one.size_remains(ship_size))
                     {
                         ship_size--;
                         from.x == to.x ? to.y-- : to.x--;
                     }
-                    if (!one.size_remains(0)) // end ships placement
+                    if (!m_one.size_remains(0)) // end ships placement
                         c = 1;
                     break;
                 default:
                     continue;
             }
-            draw_player_ships(game_win, {BETWEEN_FIELDS + 3, 12}, one);
-            if (one.size_remains(0))
+            draw_player_ships(game_win, {BETWEEN_FIELDS + 3, 12}, m_one);
+            if (m_one.size_remains(0))
                 draw_placing_ship(game_win, {BETWEEN_FIELDS + 3, 12}, from, to);
             wrefresh(game_win);
         }
     }
     void manage_ongoing_fight (WINDOW *game_win)
     {
-        GAME::draw_fight_interface (game_win, one);
+        GAME::draw_fight_interface (game_win, m_one);
 
         //create all possible options
         std::deque <coordinates> bot_future_moves;
@@ -360,11 +360,11 @@ public:
 
         for (int i = 0; ; i = (i+1)%2 )
         {
-            i ? bot_fires(game_win, bot_future_moves) : player_fires (game_win, {BETWEEN_FIELDS * 2 + 3 + FIELD_WIDTH, 12}, two);
+            i ? bot_fires(game_win, bot_future_moves) : player_fires (game_win, {BETWEEN_FIELDS * 2 + 3 + FIELD_WIDTH, 12}, m_two);
             if (!continues())
             {
                 i ? mvwprintw(game_win, 5, (GAME_WIDTH - 41) / 2, "You lost :( Wish you more luck next time!") : mvwprintw(game_win, 5, (GAME_WIDTH - 22) / 2, "You won! Great battle!");
-                i ? two_score++ : one_score++;
+                i ? m_two_score++ : m_one_score++;
 
                 mvwprintw(game_win, 6, (GAME_WIDTH - 23) / 2, "Press any key to continue");
                 wgetch(game_win);
@@ -399,7 +399,7 @@ private:
     }
     bool continues() const
     {
-        return one.check_loss() && two.check_loss();
+        return m_one.check_loss() && m_two.check_loss();
     }
     static void player_fires(WINDOW* game_win, coordinates window, FIELD& field)
     {
@@ -454,40 +454,40 @@ private:
     }
     void bot_fires (WINDOW* game_win, std::deque <coordinates> & bot_future_moves)
     {
-        while (one.fire ( bot_future_moves.front()))
+        while (m_one.fire (bot_future_moves.front()))
         {
-            if (one.cell_state(bot_future_moves.front()) == HIT)
+            if (m_one.cell_state(bot_future_moves.front()) == HIT)
                 usleep(300000);
             coordinates hit = bot_future_moves.front();
             bot_future_moves.pop_front();
 
-            int check = one.cell_state(coordinates(hit.x, limit(hit.y-1)));
+            int check = m_one.cell_state(coordinates(hit.x, limit(hit.y - 1)));
             if(check == NOT_CHECKED || check ==  NOT_HIT)
                 bot_future_moves.emplace_front(hit.x, hit.y-1);
 
-            check = one.cell_state(coordinates(hit.x, limit(hit.y+1)));
+            check = m_one.cell_state(coordinates(hit.x, limit(hit.y + 1)));
             if(check == NOT_CHECKED || check ==  NOT_HIT)
                 bot_future_moves.emplace_front(hit.x, hit.y+1);
 
-            check = one.cell_state(coordinates(limit(hit.x+1), hit.y));
+            check = m_one.cell_state(coordinates(limit(hit.x + 1), hit.y));
             if(check == NOT_CHECKED || check ==  NOT_HIT)
                 bot_future_moves.emplace_front(hit.x+1, hit.y);
 
-            check = one.cell_state(coordinates(limit(hit.x-1), hit.y));
+            check = m_one.cell_state(coordinates(limit(hit.x - 1), hit.y));
             if(check == NOT_CHECKED || check ==  NOT_HIT)
                 bot_future_moves.emplace_front(hit.x-1, hit.y);
 
-            draw_player_ships(game_win, {BETWEEN_FIELDS + 3, 12}, one);
+            draw_player_ships(game_win, {BETWEEN_FIELDS + 3, 12}, m_one);
             wrefresh(game_win);
         }
         bot_future_moves.pop_front();
-        draw_player_ships(game_win, {BETWEEN_FIELDS + 3, 12}, one);
+        draw_player_ships(game_win, {BETWEEN_FIELDS + 3, 12}, m_one);
         wrefresh(game_win);
     }
     void reset_fields ()
     {
-    one.reset();
-    two.reset();
+    m_one.reset();
+    m_two.reset();
     }
     static void ships_auto_place (FIELD& field, int ship_size = 3)
     {
@@ -649,24 +649,23 @@ private:
         mvwprintw(game_win, window.y+aim.y*2, window.x+aim.x*4, "+");
         wattroff(game_win, COLOR_PAIR(2));
     }
-    bool hints;
-    int one_score, two_score;
-    FIELD one, two;
+    bool m_hints;
+    int m_one_score, m_two_score;
+    FIELD m_one, m_two;
 };
 
 int main() {
     GAME game;
+    initscr();
+    start_color();
+    init_pair(1, COLOR_RED, COLOR_BLACK);
+    init_pair(2, COLOR_YELLOW, COLOR_BLACK);
+    init_pair(3, COLOR_BLUE, COLOR_BLACK);
+    cbreak();
+    noecho();
+    keypad(stdscr, TRUE);
     while (true)
     {
-        initscr();
-        start_color();
-        init_pair(1, COLOR_RED, COLOR_BLACK);
-        init_pair(2, COLOR_YELLOW, COLOR_BLACK);
-        init_pair(3, COLOR_BLUE, COLOR_BLACK);
-        cbreak();
-        noecho();
-        keypad(stdscr, TRUE);
-
         if (!game.manage_menu())
             return 0;
 
