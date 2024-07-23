@@ -50,7 +50,7 @@ public:
             for (int & j : i)
                 j = NOT_CHECKED;
     }
-    bool size_remains (int size)
+    int size_remains (int size)
     {
         return m_ships_not_placed[size];
     }
@@ -253,6 +253,7 @@ public:
         int ship_size = 3; // actually represents the size of 4
         coordinates from (3, 4), to (from.x + ship_size, 4);
         draw_placing_ship(game_win, {BETWEEN_FIELDS + 3, 12}, from, to);
+        print_ships_left (game_win, coordinates (BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, 28), m_one);
         wrefresh(game_win);
 
         int c = 0;
@@ -323,6 +324,7 @@ public:
                         m_one.reset();
                     }
                     GAME::ships_auto_place(m_one, ship_size);
+
                     ship_size = 0;
                     break;
                 case 10: // Enter
@@ -338,6 +340,7 @@ public:
                 default:
                     continue;
             }
+            print_ships_left (game_win, coordinates (BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, 28), m_one);
             draw_player_ships(game_win, {BETWEEN_FIELDS + 3, 12}, m_one);
             if (m_one.size_remains(0))
                 draw_placing_ship(game_win, {BETWEEN_FIELDS + 3, 12}, from, to);
@@ -393,101 +396,9 @@ private:
         mvwprintw(game_win, 10, BETWEEN_FIELDS + 3, "~-----------~    You    ~-----------~");
         draw_grid(game_win, {BETWEEN_FIELDS + 1, 11});
         mvwprintw(game_win, 4, 45, "Here is your field, chose carefully where to hide your ships");
-        mvwprintw(game_win, 18, BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, "[Enter] Place/Start");
-        mvwprintw(game_win, 20, BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, "[E] Auto-place");
-        mvwprintw(game_win, 22, BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, "[Q] Reset");
-    }
-    bool continues() const
-    {
-        return m_one.check_loss() && m_two.check_loss();
-    }
-    static void player_fires(WINDOW* game_win, coordinates window, FIELD& field)
-    {
-        do {
-            draw_enemy_ships(game_win, window, field);
-            draw_aim(game_win, window, field.last_fire);
-            wrefresh(game_win);
-            int c;
-            while (true) // arrow movement
-            {
-                c = wgetch(game_win);
-                switch (c)
-                {
-                    case KEY_UP:
-                    case 'w':
-                    case 'W':
-                        if (field.last_fire.y > 0)
-                            field.last_fire.y--;
-                        break;
-                    case KEY_DOWN:
-                    case 's':
-                    case 'S':
-                        if (field.last_fire.y < 9)
-                            field.last_fire.y++;
-                        break;
-                    case KEY_LEFT:
-                    case 'a':
-                    case 'A':
-                        if (field.last_fire.x > 0)
-                            field.last_fire.x--;
-                        break;
-                    case KEY_RIGHT:
-                    case 'd':
-                    case 'D':
-                        if (field.last_fire.x < 9)
-                            field.last_fire.x++;
-                        break;
-                    case 10: // Enter
-                        break;
-                    default:
-                        continue;
-                }
-                draw_enemy_ships(game_win, window, field);
-                draw_aim(game_win, window, field.last_fire);
-                wrefresh(game_win);
-                if (c == 10)
-                {
-                    break;
-                }
-            }
-        } while (field.fire(field.last_fire));
-    }
-    void bot_fires (WINDOW* game_win, std::deque <coordinates> & bot_future_moves)
-    {
-        while (m_one.fire (bot_future_moves.front()))
-        {
-            if (m_one.cell_state(bot_future_moves.front()) == HIT)
-                usleep(300000);
-            coordinates hit = bot_future_moves.front();
-            bot_future_moves.pop_front();
-
-            int check = m_one.cell_state(coordinates(hit.x, limit(hit.y - 1)));
-            if(check == NOT_CHECKED || check ==  NOT_HIT)
-                bot_future_moves.emplace_front(hit.x, hit.y-1);
-
-            check = m_one.cell_state(coordinates(hit.x, limit(hit.y + 1)));
-            if(check == NOT_CHECKED || check ==  NOT_HIT)
-                bot_future_moves.emplace_front(hit.x, hit.y+1);
-
-            check = m_one.cell_state(coordinates(limit(hit.x + 1), hit.y));
-            if(check == NOT_CHECKED || check ==  NOT_HIT)
-                bot_future_moves.emplace_front(hit.x+1, hit.y);
-
-            check = m_one.cell_state(coordinates(limit(hit.x - 1), hit.y));
-            if(check == NOT_CHECKED || check ==  NOT_HIT)
-                bot_future_moves.emplace_front(hit.x-1, hit.y);
-
-            draw_player_ships(game_win, {BETWEEN_FIELDS + 3, 12}, m_one);
-            wrefresh(game_win);
-        }
-        bot_future_moves.pop_front();
-        draw_player_ships(game_win, {BETWEEN_FIELDS + 3, 12}, m_one);
-        wrefresh(game_win);
-    }
-    void reset_fields ()
-    {
-    m_one.reset();
-    m_two.reset();
+        mvwprintw(game_win, 14, BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, "[Enter] Place/Start");
+        mvwprintw(game_win, 16, BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, "[E] Auto-place");
+        mvwprintw(game_win, 18, BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, "[Q] Reset");
     }
     static void ships_auto_place (FIELD& field, int ship_size = 3)
     {
@@ -649,6 +560,113 @@ private:
         mvwprintw(game_win, window.y+aim.y*2, window.x+aim.x*4, "+");
         wattroff(game_win, COLOR_PAIR(2));
     }
+    static void player_fires(WINDOW* game_win, coordinates window, FIELD& field)
+    {
+        do {
+            draw_enemy_ships(game_win, window, field);
+            draw_aim(game_win, window, field.last_fire);
+            wrefresh(game_win);
+            int c;
+            while (true) // arrow movement
+            {
+                c = wgetch(game_win);
+                switch (c)
+                {
+                    case KEY_UP:
+                    case 'w':
+                    case 'W':
+                        if (field.last_fire.y > 0)
+                            field.last_fire.y--;
+                        break;
+                    case KEY_DOWN:
+                    case 's':
+                    case 'S':
+                        if (field.last_fire.y < 9)
+                            field.last_fire.y++;
+                        break;
+                    case KEY_LEFT:
+                    case 'a':
+                    case 'A':
+                        if (field.last_fire.x > 0)
+                            field.last_fire.x--;
+                        break;
+                    case KEY_RIGHT:
+                    case 'd':
+                    case 'D':
+                        if (field.last_fire.x < 9)
+                            field.last_fire.x++;
+                        break;
+                    case 10: // Enter
+                        break;
+                    default:
+                        continue;
+                }
+                draw_enemy_ships(game_win, window, field);
+                draw_aim(game_win, window, field.last_fire);
+                wrefresh(game_win);
+                if (c == 10)
+                {
+                    break;
+                }
+            }
+        } while (field.fire(field.last_fire));
+    }
+    static void print_ships_left (WINDOW* game_win, coordinates window, FIELD& field)
+    {
+        for (int i = 3; i >= 0; i--)
+        {
+            if (!field.size_remains(i))
+            {
+                mvwprintw(game_win, window.y-i*2, window.x, "            ");
+                continue;
+            }
+            mvwprintw(game_win, window.y-i*2, window.x, "%d x ", field.size_remains(i));
+            for (int j = 0; j <= i; j++)
+                mvwprintw(game_win, window.y-i*2, window.x+4+2*j, "[]");
+        }
+    }
+    bool continues() const
+    {
+        return m_one.check_loss() && m_two.check_loss();
+    }
+    void bot_fires (WINDOW* game_win, std::deque <coordinates> & bot_future_moves)
+    {
+        while (m_one.fire (bot_future_moves.front()))
+        {
+            if (m_one.cell_state(bot_future_moves.front()) == HIT)
+                usleep(300000);
+            coordinates hit = bot_future_moves.front();
+            bot_future_moves.pop_front();
+
+            int check = m_one.cell_state(coordinates(hit.x, limit(hit.y - 1)));
+            if(check == NOT_CHECKED || check ==  NOT_HIT)
+                bot_future_moves.emplace_front(hit.x, hit.y-1);
+
+            check = m_one.cell_state(coordinates(hit.x, limit(hit.y + 1)));
+            if(check == NOT_CHECKED || check ==  NOT_HIT)
+                bot_future_moves.emplace_front(hit.x, hit.y+1);
+
+            check = m_one.cell_state(coordinates(limit(hit.x + 1), hit.y));
+            if(check == NOT_CHECKED || check ==  NOT_HIT)
+                bot_future_moves.emplace_front(hit.x+1, hit.y);
+
+            check = m_one.cell_state(coordinates(limit(hit.x - 1), hit.y));
+            if(check == NOT_CHECKED || check ==  NOT_HIT)
+                bot_future_moves.emplace_front(hit.x-1, hit.y);
+
+            draw_player_ships(game_win, {BETWEEN_FIELDS + 3, 12}, m_one);
+            wrefresh(game_win);
+        }
+        bot_future_moves.pop_front();
+        draw_player_ships(game_win, {BETWEEN_FIELDS + 3, 12}, m_one);
+        wrefresh(game_win);
+    }
+    void reset_fields ()
+    {
+    m_one.reset();
+    m_two.reset();
+    }
+
     bool m_hints;
     int m_one_score, m_two_score;
     FIELD m_one, m_two;
