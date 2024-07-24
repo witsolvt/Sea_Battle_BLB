@@ -9,12 +9,28 @@
 
 #define min(a, b) (( a < b ) ? a : b)
 #define max(a, b) (( a < b ) ? b : a)
-#define MENU_HEIGHT 12
-#define MENU_WIDTH 40
-#define GAME_HEIGHT 40
-#define GAME_WIDTH 150
+#define WINDOW_HEIGHT 40
+#define WINDOW_WIDTH 150
 #define FIELD_WIDTH 41
-#define BETWEEN_FIELDS ((GAME_WIDTH - FIELD_WIDTH * 2) / 3)
+#define BETWEEN_FIELDS ((WINDOW_WIDTH - FIELD_WIDTH * 2) / 3)
+
+const std::vector<std::string> menu_options = {
+        "Start", "Hints", "Reset score", "Quit"
+};
+const std::vector<std::string> banner = {
+        "  ____    _____      _            ____       _      _____   _____   _       _____",
+        " / ___|  | ____|    / \\          | __ )     / \\    |_   _| |_   _| | |     | ____|",
+        " \\___ \\  |  _|     / _ \\         |  _ \\    / _ \\     | |     | |   | |     |  _|",
+        "  ___) | | |___   / ___ \\        | |_) |  / ___ \\    | |     | |   | |___  | |___",
+        " |____/  |_____| /_/   \\_\\       |____/  /_/   \\_\\   |_|     |_|   |_____| |_____|"
+};
+const std::vector<std::string> ship = {
+        "        _    _",
+        "     __|_|__|_|_",
+        "   _|___________|__",
+        "  |o o o o o o o o/",
+        "~'`~'`~'`~'`~'`~'`~"
+};
 
 int limit (const int a)
 {
@@ -175,9 +191,10 @@ public:
             int c;
 
             // draw menu
-            int start_x = (COLS - MENU_WIDTH) / 2;
-            int start_y = (LINES - MENU_HEIGHT) / 2;
-            WINDOW *menu_win = newwin(MENU_HEIGHT, MENU_WIDTH, start_y, start_x);
+            int start_x = (COLS - WINDOW_WIDTH) / 2;
+            int start_y = (LINES - WINDOW_HEIGHT) / 2;
+            WINDOW *menu_win = newwin(WINDOW_HEIGHT, WINDOW_WIDTH, start_y, start_x);
+            wattron(menu_win, A_BOLD);
             keypad(menu_win, TRUE);
             print_menu(menu_win, option, m_hints, m_one_score, m_two_score);
 
@@ -366,7 +383,7 @@ public:
                 if (i)
                 {
                     wattron(game_win, COLOR_PAIR(1));
-                    mvwprintw(game_win, 5, (GAME_WIDTH - 41) / 2, "You lost :( Wish you more luck next time!");
+                    mvwprintw(game_win, 5, (WINDOW_WIDTH - 41) / 2, "You lost :( Wish you more luck next time!");
                     wattroff(game_win, COLOR_PAIR(1));
                     draw_player_ships (game_win, coordinates (BETWEEN_FIELDS * 2 + 3 + FIELD_WIDTH, 12), m_two);
                     m_two_score++;
@@ -374,12 +391,12 @@ public:
                 else
                 {
                     wattron(game_win, COLOR_PAIR(3));
-                    mvwprintw(game_win, 5, (GAME_WIDTH - 22) / 2, "You won! Great battle!");
+                    mvwprintw(game_win, 5, (WINDOW_WIDTH - 22) / 2, "You won! Great battle!");
                     wattroff(game_win, COLOR_PAIR(3));
                     m_one_score++;
                 }
 
-                mvwprintw(game_win, 7, (GAME_WIDTH - 29) / 2, "Press [SPACE] key to continue");
+                mvwprintw(game_win, 7, (WINDOW_WIDTH - 29) / 2, "Press [SPACE] key to continue");
 
                 int c = 0;
                 while (c != ' ')
@@ -397,7 +414,7 @@ private:
         werase(game_win);
         wrefresh(game_win);
         box(game_win, 0, 0);
-        mvwprintw(game_win, 0, (GAME_WIDTH-24)/2, "**X  Battle ongoing  X**");
+        mvwprintw(game_win, 0, (WINDOW_WIDTH - 24) / 2, "**X  Battle ongoing  X**");
         mvwprintw(game_win, 10, BETWEEN_FIELDS + 3, "~-----------~    You    ~-----------~");
         mvwprintw(game_win, 10, BETWEEN_FIELDS * 2 + 3 + FIELD_WIDTH, "~----------~    Enemy    ~----------~");
         draw_grid(game_win, {BETWEEN_FIELDS + 1, 11}); //player
@@ -408,7 +425,7 @@ private:
         werase(game_win);
         wrefresh(game_win);
         box(game_win, 0, 0);
-        mvwprintw(game_win, 0, (GAME_WIDTH-25)/2, "**@  Placing ongoing  @**");
+        mvwprintw(game_win, 0, (WINDOW_WIDTH - 25) / 2, "**@  Placing ongoing  @**");
         mvwprintw(game_win, 10, BETWEEN_FIELDS + 3, "~-----------~    You    ~-----------~");
         draw_grid(game_win, {BETWEEN_FIELDS + 1, 11});
         mvwprintw(game_win, 4, 45, "Here is your field, chose carefully where to hide your ships");
@@ -437,46 +454,47 @@ private:
     }
     static void print_menu(WINDOW *menu_win, size_t highlight, bool hints, const int one_score, const int two_score)
     {
-        const std::vector<std::string> menu_options = {
-                "Start", "Hints", "Reset score", "Quit"
-        };
-
         erase();
         refresh();
+        wattron(menu_win, A_BOLD);
         box(menu_win, 0, 0);
-        int x = (MENU_WIDTH - 30) / 2 + 1, y = 0;
-        mvwprintw(menu_win, y, x, "**X Welcome to Sea battle! X**");
-        x = 5;
-        y = 3;
-        for (int i = 0; i < menu_options.size(); i++) {
-            if (highlight == i) //is selected
-            {
-                wattron(menu_win, A_REVERSE); // Highlight the current choice
-                mvwprintw(menu_win, y, x, "%s", menu_options[i].c_str());
-                if (i == 1)
-                    hints ? mvwprintw(menu_win, y, MENU_WIDTH * 3 / 4 , "ON") : mvwprintw(menu_win, y, MENU_WIDTH * 3 / 4, "OFF");
-                wattroff(menu_win, A_REVERSE);
-            }
-            else // not selected
-            {
-                mvwprintw(menu_win, y, x, "%s", menu_options[i].c_str());
-                if (i == 1)
-                    hints ? mvwprintw(menu_win, y, MENU_WIDTH * 3 / 4 , "ON") : mvwprintw(menu_win, y, MENU_WIDTH * 3 / 4, "OFF");
-            }
-            y++;
-        }
-        mvwprintw(menu_win, 8, (MENU_WIDTH - 5) / 2, "SCORE");
 
+        //print the banner
+        for (size_t i = 0; i < banner.size(); i++)
+            mvwprintw(menu_win, i + 4, (WINDOW_WIDTH - 84) / 2, "%s", banner[i].c_str());
+
+        int x = WINDOW_WIDTH / 5;
+        int y = (WINDOW_HEIGHT - 5) / 2;
+        for (int i = 0; i < menu_options.size(); i++, y+=2)
+        {
+            if (highlight == i)  //Turn on the highlight of current choice
+            {
+                wattron(menu_win, A_REVERSE);
+            }
+
+            highlight == i ? mvwprintw(menu_win, y, x - 2, ">") : mvwprintw(menu_win, y, x - 2, " ");
+            mvwprintw(menu_win, y, x, "%s", menu_options[i].c_str());
+
+            if (i == 1)
+                hints ? mvwprintw(menu_win, y, x + 8 , "ON") : mvwprintw(menu_win, y, x + 8, "OFF");
+
+            if (highlight == i) //Turn off the highlight of current choice
+                wattroff(menu_win, A_REVERSE);
+        }
+
+        y += 2;
+        mvwprintw(menu_win, y, x, "SCORE");
+        x += 7;
         wattron(menu_win, COLOR_PAIR(3));
-        mvwprintw(menu_win, 9, (MENU_WIDTH - 5) / 2, "%d", one_score);
+        mvwprintw(menu_win, y, x, "%d", one_score);
         wattroff(menu_win, COLOR_PAIR(3));
 
-        mvwprintw(menu_win, 9, 2 + (MENU_WIDTH - 5) / 2, ":");
+        mvwprintw(menu_win, y, 2 + x, ":");
 
         wattron(menu_win, COLOR_PAIR(1));
-        mvwprintw(menu_win, 9, 4 + (MENU_WIDTH - 5) / 2, "%d", two_score);
+        mvwprintw(menu_win, y, 4 + x, "%d", two_score);
         wattroff(menu_win, COLOR_PAIR(1));
-
+        wattroff(menu_win, A_BOLD);
         wrefresh(menu_win);
     }
     static void draw_grid(WINDOW *game_win, coordinates window) {
@@ -709,15 +727,17 @@ int main() {
             return 0;
 
         //create a new window for game
-        int start_x = (COLS - GAME_WIDTH) / 2;
-        int start_y = (LINES - GAME_HEIGHT) / 2;
-        WINDOW* game_win = newwin(GAME_HEIGHT, GAME_WIDTH, start_y, start_x);
+        int start_x = (COLS - WINDOW_WIDTH) / 2;
+        int start_y = (LINES - WINDOW_HEIGHT) / 2;
+        WINDOW* game_win = newwin(WINDOW_HEIGHT, WINDOW_WIDTH, start_y, start_x);
         keypad(game_win, TRUE);
+        wattron(game_win, A_BOLD);
 
         //sets ships for both player and bot
         game.manage_ship_placement(game_win);
 
         //cycle in witch player and bot fire each other until someone wins
         game.manage_ongoing_fight (game_win);
+        wattroff(game_win, A_BOLD);
     }
 }
