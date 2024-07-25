@@ -6,6 +6,9 @@
 #include <deque>
 #include <algorithm>
 #include <random>
+#include <thread>
+#include <atomic>
+#include <mutex>
 
 #define min(a, b) (( a < b ) ? a : b)
 #define max(a, b) (( a < b ) ? b : a)
@@ -25,11 +28,11 @@ const std::vector<std::string> banner = {
         " |____/  |_____| /_/   \\_\\       |____/  /_/   \\_\\   |_|     |_|   |_____| |_____|"
 };
 const std::vector<std::string> ship = {
-        "        _    _",
-        "     __|_|__|_|_",
-        "   _|___________|__",
-        "  |o o o o o o o o/",
-        "~'`~'`~'`~'`~'`~'`~"
+        "         _    _",
+        "      __|_|__|_|_",
+        "    _|___________|__",
+        "   |o o o o o o o o/",
+        " ~'`~'`~'`~'`~'`~'`~"
 };
 
 int limit (const int a)
@@ -183,20 +186,18 @@ class GAME {
 public:
     GAME()
             : m_one_score(0), m_two_score(0), m_hints(false) {}
-    bool manage_menu() // true - start game, false - quit
+    int manage_menu(WINDOW* menu_win) // 0 - quit, 1 - start game
     {
+        //ship animation
+        std::atomic<bool> running(true);
+        std::thread animationThread(menu_ship_animation, std::ref(menu_win), std::ref(running));
+
         while (true) {
             size_t option = 0;
             size_t selection = -1;
             int c;
 
-            // draw menu
-            int start_x = (COLS - WINDOW_WIDTH) / 2;
-            int start_y = (LINES - WINDOW_HEIGHT) / 2;
-            WINDOW *menu_win = newwin(WINDOW_HEIGHT, WINDOW_WIDTH, start_y, start_x);
-            wattron(menu_win, A_BOLD);
-            keypad(menu_win, TRUE);
-            print_menu(menu_win, option, m_hints, m_one_score, m_two_score);
+            print_menu(menu_win, option);
 
             while (true) // arrow movement
             {
@@ -224,18 +225,16 @@ public:
                     default:
                         break;
                 }
-                print_menu(menu_win, option, m_hints, m_one_score, m_two_score);
+                print_menu(menu_win, option);
                 if (selection != -1) // player made a choice
                     break;
             }
             switch (selection) // chosen point in menu
             {
                 case 0:
-                    werase(menu_win);
-                    wrefresh(menu_win);
-                    delwin(menu_win);
-                    clear();
-                    return true;
+                    running = false;
+                    animationThread.join();
+                    return 1;
                 case 1:
                     if (!m_hints) {
                         m_hints = true;
@@ -248,10 +247,10 @@ public:
                     m_two_score = 0;
                     break;
                 case 3:
-                    delwin(menu_win);
-                    endwin();
+                    running = false;
+                    animationThread.join();
                     std::cout << "See you later, capitan!" << std::endl;
-                    return false;
+                    return 0;
                 default:
                     continue;
             }
@@ -452,11 +451,9 @@ private:
                 ship_size--;
         }
     }
-    static void print_menu(WINDOW *menu_win, size_t highlight, bool hints, const int one_score, const int two_score)
+    void print_menu(WINDOW *menu_win, size_t highlight)
     {
-        erase();
-        refresh();
-        wattron(menu_win, A_BOLD);
+        std::lock_guard<std::mutex> lock(m_screen_mutex);
         box(menu_win, 0, 0);
 
         //print the banner
@@ -464,7 +461,7 @@ private:
             mvwprintw(menu_win, i + 4, (WINDOW_WIDTH - 84) / 2, "%s", banner[i].c_str());
 
         int x = WINDOW_WIDTH / 5;
-        int y = (WINDOW_HEIGHT - 5) / 2;
+        int y = (WINDOW_HEIGHT - 11) / 2;
         for (int i = 0; i < menu_options.size(); i++, y+=2)
         {
             if (highlight == i)  //Turn on the highlight of current choice
@@ -476,7 +473,7 @@ private:
             mvwprintw(menu_win, y, x, "%s", menu_options[i].c_str());
 
             if (i == 1)
-                hints ? mvwprintw(menu_win, y, x + 8 , "ON") : mvwprintw(menu_win, y, x + 8, "OFF");
+                m_hints ? mvwprintw(menu_win, y, x + 8 , "ON ") : mvwprintw(menu_win, y, x + 8, "OFF");
 
             if (highlight == i) //Turn off the highlight of current choice
                 wattroff(menu_win, A_REVERSE);
@@ -486,15 +483,14 @@ private:
         mvwprintw(menu_win, y, x, "SCORE");
         x += 7;
         wattron(menu_win, COLOR_PAIR(3));
-        mvwprintw(menu_win, y, x, "%d", one_score);
+        mvwprintw(menu_win, y, x, "%d", m_one_score);
         wattroff(menu_win, COLOR_PAIR(3));
 
         mvwprintw(menu_win, y, 2 + x, ":");
 
         wattron(menu_win, COLOR_PAIR(1));
-        mvwprintw(menu_win, y, 4 + x, "%d", two_score);
+        mvwprintw(menu_win, y, 4 + x, "%d", m_two_score);
         wattroff(menu_win, COLOR_PAIR(1));
-        wattroff(menu_win, A_BOLD);
         wrefresh(menu_win);
     }
     static void draw_grid(WINDOW *game_win, coordinates window) {
@@ -664,6 +660,28 @@ private:
                 mvwprintw(game_win, window.y-i*2, window.x+4+2*j, "[]");
         }
     }
+    static void menu_ship_animation (WINDOW *menu_win, std::atomic<bool>& running)
+    {
+        int x = 1;
+        while (running)
+        {
+            for (size_t i = 0; i < ship.size(); i++)
+            {
+                std::lock_guard<std::mutex> lock(m_screen_mutex);
+                mvwprintw(menu_win, 30+i, x, "%s", ship[i].c_str());
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            x++;
+            if (x == 129)
+            {
+                std::lock_guard<std::mutex> lock(m_screen_mutex);
+                for (int j = 0; j < 5; j++)
+                mvwprintw(menu_win, 30+j, x, "                    ");
+                x = 1;
+            }
+            wrefresh(menu_win);
+        }
+    }
     bool continues() const
     {
         return m_one.check_loss() && m_two.check_loss();
@@ -673,7 +691,7 @@ private:
         while (m_one.fire (bot_future_moves.front()))
         {
             if (m_one.cell_state(bot_future_moves.front()) == HIT)
-                usleep(300000);
+                std::this_thread::sleep_for(std::chrono::milliseconds(200));
             coordinates hit = bot_future_moves.front();
             bot_future_moves.pop_front();
 
@@ -709,10 +727,13 @@ private:
     bool m_hints;
     int m_one_score, m_two_score;
     FIELD m_one, m_two;
+    static std::mutex m_screen_mutex;
 };
+std::mutex GAME::m_screen_mutex;
 
 int main() {
     GAME game;
+
     initscr();
     start_color();
     init_pair(1, COLOR_RED, COLOR_BLACK);
@@ -721,14 +742,33 @@ int main() {
     cbreak();
     noecho();
     keypad(stdscr, TRUE);
+
     while (true)
     {
-        if (!game.manage_menu())
-            return 0;
-
-        //create a new window for game
+        //window for menu
         int start_x = (COLS - WINDOW_WIDTH) / 2;
         int start_y = (LINES - WINDOW_HEIGHT) / 2;
+        WINDOW *menu_win = newwin(WINDOW_HEIGHT, WINDOW_WIDTH, start_y, start_x);
+        wattron(menu_win, A_BOLD);
+        keypad(menu_win, TRUE);
+
+        int start_game = game.manage_menu(menu_win);
+
+        //wattroff(menu_win, A_BOLD);
+        //werase(menu_win);
+        //wrefresh(menu_win);
+        delwin(menu_win);
+        refresh();
+
+        if(!start_game)
+        {
+            endwin();
+            return 0;
+
+        }
+        //window for game
+        start_x = (COLS - WINDOW_WIDTH) / 2;
+        start_y = (LINES - WINDOW_HEIGHT) / 2;
         WINDOW* game_win = newwin(WINDOW_HEIGHT, WINDOW_WIDTH, start_y, start_x);
         keypad(game_win, TRUE);
         wattron(game_win, A_BOLD);
