@@ -17,14 +17,17 @@
 class GAME {
 public:
     GAME();
-    int manage_menu(WINDOW* menu_win); // 0 - quit, 1 - start game
-    void manage_ship_placement(WINDOW *game_win);
-    void manage_ongoing_fight (WINDOW *game_win);
-
+    int manage_menu(WINDOW* menu_win); // 0 - quit, 1 - start single player game, 2 - two player game
+    void manage_singleplayer_ship_placement(WINDOW *game_win);
+    void manage_singleplayer_fight (WINDOW *game_win);
+    void manage_multiplayer_ship_placement (WINDOW *game_win);
+    void manage_multiplayer_fight (WINDOW *game_win);
 private:
-    static void draw_fight_interface(WINDOW *game_win, FIELD& player);
-    static void draw_placing_interface(WINDOW *game_win);
+    static void draw_singleplayer_fight_interface(WINDOW *game_win, FIELD& player);
+    static void draw_multiplayer_fight_interface(WINDOW *game_win);
+    static void draw_placing_interface(WINDOW *game_win, int color = 0);
     static void ships_auto_place (FIELD& field, int ship_size = 3);
+    static void place_player_ships (WINDOW *game_win, FIELD& field, int color = 0);
     void print_menu(WINDOW *menu_win, size_t highlight) const;
     static void draw_grid(WINDOW *game_win, coordinates window);
     static void draw_player_ships (WINDOW *game_win, coordinates window, const FIELD & field);

@@ -1,7 +1,6 @@
 #include <unistd.h>
 #include <ncurses.h>
 #include <algorithm>
-#include <mutex>
 #include "game.h"
 
 
@@ -43,10 +42,18 @@ int main() {
         keypad(game_win, TRUE);
         wattron(game_win, A_BOLD);
 
-        //sets ships for both player and bot
-        game.manage_ship_placement(game_win);
+        if ( start_game == 1)
+        {
+            //sets ships for both player and bot
+            game.manage_singleplayer_ship_placement(game_win);
 
-        //cycle in witch player and bot fire each other until someone wins
-        game.manage_ongoing_fight (game_win);
+            //cycle in witch player and bot fire each other until someone wins
+            game.manage_singleplayer_fight(game_win);
+        }
+        if ( start_game == 2)
+        {
+            game.manage_multiplayer_ship_placement(game_win);
+            game.manage_multiplayer_fight(game_win);
+        }
     }
 }

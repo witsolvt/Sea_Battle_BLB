@@ -15,7 +15,7 @@
 std::mutex GAME::m_screen_mutex;
 
 const std::vector<std::string> GAME::m_menu_options = {
-        "Start", "Hints", "Reset score", "Quit"
+        "Single player", "Multi player", "Hints", "Reset score", "Quit"
 };
 const std::vector<std::string> GAME::m_banner = {
         "  ____    _____      _            ____       _      _____   _____   _       _____",
@@ -54,14 +54,14 @@ const std::vector<std::string> GAME::m_ship = {
                     case 'w':
                     case 'W':
                         if (option == 0)
-                            option = 3;
+                            option = 4;
                         else
                             option--;
                         break;
                     case KEY_DOWN:
                     case 's':
                     case 'S':
-                        if (option == 3)
+                        if (option == 4)
                             option = 0;
                         else
                             option++;
@@ -83,17 +83,21 @@ const std::vector<std::string> GAME::m_ship = {
                     animationThread.join();
                     return 1;
                 case 1:
+                    running = false;
+                    animationThread.join();
+                    return 2;
+                case 2:
                     if (!m_hints) {
                         m_hints = true;
                         break;
                     }
                     m_hints = false;
                     break;
-                case 2:
+                case 3:
                     m_one_score = 0;
                     m_two_score = 0;
                     break;
-                case 3:
+                case 4:
                     running = false;
                     animationThread.join();
                     std::cout << "See you later, capitan!" << std::endl;
@@ -103,17 +107,139 @@ const std::vector<std::string> GAME::m_ship = {
             }
         }
     }
-    void GAME::manage_ship_placement(WINDOW *game_win) {
+    void GAME::manage_singleplayer_ship_placement(WINDOW *game_win) {
 
         //place bots ships
         GAME::ships_auto_place (m_two);
 
         //place players ships
-        draw_placing_interface (game_win);
+        GAME::place_player_ships (game_win, m_one);
+    }
+    void GAME::manage_singleplayer_fight (WINDOW *game_win)
+    {
+        GAME::draw_singleplayer_fight_interface(game_win, m_one);
+
+        //create all possible fire options for bot
+        std::deque <coordinates> bot_future_moves;
+        for (int i = 0; i < 10; i++)
+            for (int j = 0; j < 10; j++)
+                bot_future_moves.emplace_back(i,j);
+        //shuffle them
+        std::random_device rd;
+        std::mt19937 g(rd());
+        std::shuffle(bot_future_moves.begin(), bot_future_moves.end(), g);
+
+        for (int i = 0; ; i = (i+1)%2 )
+        {
+            i ? bot_fires(game_win, bot_future_moves) : player_fires (game_win, {BETWEEN_FIELDS * 2 + 3 + FIELD_WIDTH, 12}, m_two);
+            if (!continues())
+            {
+                if (i)
+                {
+                    wattron(game_win, COLOR_PAIR(1));
+                    mvwprintw(game_win, 5, (WINDOW_WIDTH - 41) / 2, "You lost :( Wish you more luck next time!");
+                    wattroff(game_win, COLOR_PAIR(1));
+                    draw_player_ships (game_win, coordinates (BETWEEN_FIELDS * 2 + 3 + FIELD_WIDTH, 12), m_two);
+                    m_two_score++;
+                }
+                else
+                {
+                    wattron(game_win, COLOR_PAIR(3));
+                    mvwprintw(game_win, 5, (WINDOW_WIDTH - 22) / 2, "You won! Great battle!");
+                    wattroff(game_win, COLOR_PAIR(3));
+                    m_one_score++;
+                }
+
+                mvwprintw(game_win, 7, (WINDOW_WIDTH - 29) / 2, "Press [SPACE] key to continue");
+
+                int c = 0;
+                while (c != ' ')
+                    c = wgetch(game_win);
+
+                delwin(game_win);
+                refresh();
+                reset_fields();
+                break;
+            }
+        }
+    }
+    void GAME::manage_multiplayer_ship_placement (WINDOW *game_win)
+    {
+        GAME::place_player_ships (game_win, m_one, 3);
+
+        //waiting screen
+        wclear(game_win);
+        wrefresh(game_win);
+
+        box(game_win, 0, 0);
+        wattron(game_win, COLOR_PAIR(3));
+        mvwprintw(game_win, WINDOW_HEIGHT/2 - 1, (WINDOW_WIDTH - 23) / 2, "BLUE");
+        wattroff(game_win, COLOR_PAIR(3));
+        mvwprintw(game_win, WINDOW_HEIGHT/2 - 1, (WINDOW_WIDTH - 23) / 2 + 5, "player, turn away!");
+
+        mvwprintw(game_win, WINDOW_HEIGHT/2 + 1, (WINDOW_WIDTH - 51) / 2, "Press [SPACE] to start placing ships for");
+        wattron(game_win, COLOR_PAIR(1));
+        mvwprintw(game_win, WINDOW_HEIGHT/2 + 1, (WINDOW_WIDTH - 51) / 2 + 41, "RED");
+        wattroff(game_win, COLOR_PAIR(1));
+        mvwprintw(game_win, WINDOW_HEIGHT/2 + 1, (WINDOW_WIDTH - 51) / 2 + 45, "player");
+
+        int c = 0;
+        while (c != ' ')
+            c = wgetch(game_win);
+
+        wclear(game_win);
+        wrefresh(game_win);
+
+        GAME::place_player_ships (game_win, m_two, 1);
+    }
+    void GAME::manage_multiplayer_fight (WINDOW *game_win)
+    {
+        GAME::draw_multiplayer_fight_interface(game_win);
+
+        for (int i = 0; ; i = (i+1)%2 )
+        {
+            i ? player_fires(game_win, {BETWEEN_FIELDS + 3, 12}, m_one) : player_fires (game_win, {BETWEEN_FIELDS * 2 + 3 + FIELD_WIDTH, 12}, m_two);
+            if (!continues())
+            {
+                if (i)
+                {
+                    wattron(game_win, COLOR_PAIR(1));
+                    mvwprintw(game_win, 5, (WINDOW_WIDTH - 29) / 2, "RED player won! Great battle!");
+                    wattroff(game_win, COLOR_PAIR(1));
+                    draw_player_ships (game_win, coordinates (BETWEEN_FIELDS * 2 + 3 + FIELD_WIDTH, 12), m_two);
+                    m_two_score++;
+                }
+                else
+                {
+                    wattron(game_win, COLOR_PAIR(3));
+                    mvwprintw(game_win, 5, (WINDOW_WIDTH - 30) / 2, "BLUE player won! Great battle!");
+                    wattroff(game_win, COLOR_PAIR(3));
+                    draw_player_ships (game_win, coordinates (BETWEEN_FIELDS + 3, 12), m_one);
+                    m_one_score++;
+                }
+
+                mvwprintw(game_win, 7, (WINDOW_WIDTH - 29) / 2, "Press [SPACE] key to continue");
+
+                int c = 0;
+                while (c != ' ')
+                    c = wgetch(game_win);
+
+                delwin(game_win);
+                refresh();
+                reset_fields();
+                break;
+            }
+        }
+
+
+    }
+    void GAME::place_player_ships (WINDOW *game_win, FIELD& field, int color)
+    {
+        draw_placing_interface (game_win, color);
         int ship_size = 3; // actually represents the size of 4
         coordinates from (3, 4), to (from.x + ship_size, 4);
         draw_placing_ship(game_win, {BETWEEN_FIELDS + 3, 12}, from, to);
-        print_ships_left (game_win, coordinates (BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, 29), m_one);
+        print_ships_left (game_win, {BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, 29}, field);
         wrefresh(game_win);
 
         int c = 0;
@@ -173,89 +299,41 @@ const std::vector<std::string> GAME::m_ship = {
                     break;
                 case 'Q':
                 case 'q':
-                    m_one.reset();
+                    field.reset();
                     ship_size = 3;
                     from.x = 3, from.y = 4, to.x = from.x + ship_size, to.y = 4;
                     break;
                 case 'E':
                 case 'e':
-                    if (!m_one.size_remains(0))
+                    if (!field.size_remains(0))
                     {
-                        m_one.reset();
+                        field.reset();
                         ship_size = 3;
                     }
-                    GAME::ships_auto_place(m_one, ship_size);
+                    GAME::ships_auto_place(field, ship_size);
                     ship_size = 0;
                     break;
                 case 10: // Enter
-                    m_one.add_ship(from, to);
-                    if (!m_one.size_remains(ship_size))
+                    field.add_ship(from, to);
+                    if (!field.size_remains(ship_size))
                     {
                         ship_size--;
                         from.x == to.x ? to.y-- : to.x--;
                     }
-                    if (!m_one.size_remains(0)) // end ships placement
+                    if (!field.size_remains(0)) // end ships placement
                         c = 1;
                     break;
                 default:
                     continue;
             }
-            print_ships_left (game_win, coordinates (BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, 29), m_one);
-            draw_player_ships(game_win, {BETWEEN_FIELDS + 3, 12}, m_one);
-            if (m_one.size_remains(0))
+            print_ships_left (game_win, coordinates (BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, 29), field);
+            draw_player_ships(game_win, {BETWEEN_FIELDS + 3, 12}, field);
+            if (field.size_remains(0))
                 draw_placing_ship(game_win, {BETWEEN_FIELDS + 3, 12}, from, to);
             wrefresh(game_win);
         }
     }
-    void GAME::manage_ongoing_fight (WINDOW *game_win)
-    {
-        GAME::draw_fight_interface (game_win, m_one);
-
-        //create all possible options
-        std::deque <coordinates> bot_future_moves;
-        for (int i = 0; i < 10; i++)
-            for (int j = 0; j < 10; j++)
-                bot_future_moves.emplace_back(i,j);
-        //shuffle them
-        std::random_device rd;
-        std::mt19937 g(rd());
-        std::shuffle(bot_future_moves.begin(), bot_future_moves.end(), g);
-
-        for (int i = 0; ; i = (i+1)%2 )
-        {
-            i ? bot_fires(game_win, bot_future_moves) : player_fires (game_win, {BETWEEN_FIELDS * 2 + 3 + FIELD_WIDTH, 12}, m_two);
-            if (!continues())
-            {
-                if (i)
-                {
-                    wattron(game_win, COLOR_PAIR(1));
-                    mvwprintw(game_win, 5, (WINDOW_WIDTH - 41) / 2, "You lost :( Wish you more luck next time!");
-                    wattroff(game_win, COLOR_PAIR(1));
-                    draw_player_ships (game_win, coordinates (BETWEEN_FIELDS * 2 + 3 + FIELD_WIDTH, 12), m_two);
-                    m_two_score++;
-                }
-                else
-                {
-                    wattron(game_win, COLOR_PAIR(3));
-                    mvwprintw(game_win, 5, (WINDOW_WIDTH - 22) / 2, "You won! Great battle!");
-                    wattroff(game_win, COLOR_PAIR(3));
-                    m_one_score++;
-                }
-
-                mvwprintw(game_win, 7, (WINDOW_WIDTH - 29) / 2, "Press [SPACE] key to continue");
-
-                int c = 0;
-                while (c != ' ')
-                    c = wgetch(game_win);
-
-                delwin(game_win);
-                refresh();
-                reset_fields();
-                break;
-            }
-        }
-    }
-    void GAME::draw_fight_interface(WINDOW *game_win, FIELD& player) {
+    void GAME::draw_singleplayer_fight_interface(WINDOW *game_win, FIELD& player) {
         werase(game_win);
         box(game_win, 0, 0);
         mvwprintw(game_win, 0, (WINDOW_WIDTH - 24) / 2, "**X  Battle ongoing  X**");
@@ -265,13 +343,35 @@ const std::vector<std::string> GAME::m_ship = {
         draw_grid(game_win, {BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, 11}); //opponent
         GAME::draw_player_ships(game_win, {BETWEEN_FIELDS + 3, 12}, player);
     }
-    void GAME::draw_placing_interface(WINDOW *game_win) {
-        werase(game_win);
+void GAME::draw_multiplayer_fight_interface(WINDOW *game_win) {
+    werase(game_win);
+    box(game_win, 0, 0);
+    mvwprintw(game_win, 0, (WINDOW_WIDTH - 24) / 2, "**X  Battle ongoing  X**");
+    mvwprintw(game_win, 10, BETWEEN_FIELDS + 3, "~-----------~           ~-----------~");
+    wattron(game_win, COLOR_PAIR(3));
+    mvwprintw(game_win, 10, BETWEEN_FIELDS + 3 + 16, "BLUE");
+    wattroff(game_win, COLOR_PAIR(3));
+    mvwprintw(game_win, 10, BETWEEN_FIELDS * 2 + 3 + FIELD_WIDTH, "~----------~           ~----------~");
+    wattron(game_win, COLOR_PAIR(1));
+    mvwprintw(game_win, 10, BETWEEN_FIELDS * 2 + 3 + FIELD_WIDTH + 16, "RED");
+    wattroff(game_win, COLOR_PAIR(1));
+    draw_grid(game_win, {BETWEEN_FIELDS + 1, 11});
+    draw_grid(game_win, {BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, 11});
+}
+    void GAME::draw_placing_interface(WINDOW *game_win, int color) {
+        wclear(game_win);
         box(game_win, 0, 0);
         mvwprintw(game_win, 0, (WINDOW_WIDTH - 25) / 2, "**@  Placing ongoing  @**");
-        mvwprintw(game_win, 10, BETWEEN_FIELDS + 3, "~-----------~    You    ~-----------~");
+        mvwprintw(game_win, 10, BETWEEN_FIELDS + 3, "~-----------~           ~-----------~");
+        if (color)
+            wattron(game_win, COLOR_PAIR(color));
+        mvwprintw(game_win, 10, BETWEEN_FIELDS + 3 + 18, "You");
+        if (color)
+            wattroff(game_win, COLOR_PAIR(color));
         draw_grid(game_win, {BETWEEN_FIELDS + 1, 11});
-        mvwprintw(game_win, 4, 45, "Here is your field, chose carefully where to hide your ships");
+        mvwprintw(game_win, 6, 45, "Here is your field, chose carefully where to hide your ships");
+        if (color)
+            mvwprintw(game_win, 4, (WINDOW_WIDTH - 43 ) /2 , "Do not show the screen to the other player!");
         mvwprintw(game_win, 13, BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, "[Enter] Place/Start");
         mvwprintw(game_win, 15, BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, "[Space] Rotate");
         mvwprintw(game_win, 17, BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, "[E] Auto-place");
@@ -316,7 +416,7 @@ const std::vector<std::string> GAME::m_ship = {
             highlight == i ? mvwprintw(menu_win, y, x - 2, ">") : mvwprintw(menu_win, y, x - 2, " ");
             mvwprintw(menu_win, y, x, "%s", m_menu_options[i].c_str());
 
-            if (i == 1)
+            if (i == 2)
                 m_hints ? mvwprintw(menu_win, y, x + 8 , "ON ") : mvwprintw(menu_win, y, x + 8, "OFF");
 
             if (highlight == i) //Turn off the highlight of current choice
