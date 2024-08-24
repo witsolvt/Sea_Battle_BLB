@@ -44,7 +44,7 @@ const std::vector<std::string> GAME::m_ship = {
             size_t selection = -1;
             int c;
 
-            print_menu(menu_win, option);
+            draw_menu(menu_win, option);
 
             while (true) // arrow movement
             {
@@ -72,7 +72,7 @@ const std::vector<std::string> GAME::m_ship = {
                     default:
                         break;
                 }
-                print_menu(menu_win, option);
+                draw_menu(menu_win, option);
                 if (selection != -1) // player made a choice
                     break;
             }
@@ -230,8 +230,6 @@ const std::vector<std::string> GAME::m_ship = {
                 break;
             }
         }
-
-
     }
     void GAME::place_player_ships (WINDOW *game_win, FIELD& field, int color)
     {
@@ -343,7 +341,7 @@ const std::vector<std::string> GAME::m_ship = {
         draw_grid(game_win, {BETWEEN_FIELDS * 2 + 1 + FIELD_WIDTH, 11}); //opponent
         GAME::draw_player_ships(game_win, {BETWEEN_FIELDS + 3, 12}, player);
     }
-void GAME::draw_multiplayer_fight_interface(WINDOW *game_win) {
+    void GAME::draw_multiplayer_fight_interface(WINDOW *game_win) {
     werase(game_win);
     box(game_win, 0, 0);
     mvwprintw(game_win, 0, (WINDOW_WIDTH - 24) / 2, "**X  Battle ongoing  X**");
@@ -395,7 +393,7 @@ void GAME::draw_multiplayer_fight_interface(WINDOW *game_win) {
                 ship_size--;
         }
     }
-    void GAME::print_menu(WINDOW *menu_win, size_t highlight) const
+    void GAME::draw_menu(WINDOW *menu_win, size_t highlight) const
     {
         std::lock_guard<std::mutex> lock(m_screen_mutex);
         box(menu_win, 0, 0);
@@ -435,6 +433,11 @@ void GAME::draw_multiplayer_fight_interface(WINDOW *game_win) {
         wattron(menu_win, COLOR_PAIR(1));
         mvwprintw(menu_win, y, 4 + x, "%d", m_two_score);
         wattroff(menu_win, COLOR_PAIR(1));
+
+        mvwprintw(menu_win, WINDOW_HEIGHT/2-2, WINDOW_WIDTH/4*3 - 48/2, "This game is made by @witsolvt (Maksym Humeniuk)");
+        mvwprintw(menu_win, WINDOW_HEIGHT/2, WINDOW_WIDTH/4*3 - 14/2, "More on GitHub");
+        mvwprintw(menu_win, WINDOW_HEIGHT/2+2, WINDOW_WIDTH/4*3 - 28/2, "Enjoy the fight, captain! ;)");
+
         wrefresh(menu_win);
     }
     void GAME::draw_grid(WINDOW *game_win, coordinates window) {
