@@ -11,5 +11,5 @@ To compile and start a game you need to install ncurses library:
   sudo apt update
   sudo apt install libncurses5-dev libncursesw5-dev
 
-And compile the file with this command
-  g++ main.cpp -lncurses
+And run the compilation script
+  ./comp.sh
